@@ -19,16 +19,30 @@ public class HelpState implements DialogState {
 
     @Override
     public String userRequest(DialogContext context) {
-        String input = context.getUserInput();
+        String input = context.getUserInput().toLowerCase().trim();
 
         switch (input) {
             case "/start":
+            case "start":
+            case "старт":
+            case "начать":
                 context.setNextState(new StartState());
                 return "Перезапуск бота...";
             case "/menu":
-            case "/back":
+            case "menu":
+            case "меню":
                 context.setNextState(new MainState());
                 return "Возвращение на главное меню...";
+            case "/back":
+            case "back":
+            case "назад":
+            case "возврат":
+                if (context.getUserSession().getPreviousState() != null) {
+                    context.setNextState(context.getUserSession().getPreviousState());
+                    return "↩️ Возврат в предыдущее состояние...";
+                } else {
+                    return messageProvider.getMessage("error.operation.cancelled");
+                }
             default:
                 return messageProvider.getMessage("help.main");
         }

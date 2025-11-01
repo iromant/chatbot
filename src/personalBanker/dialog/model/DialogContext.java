@@ -1,7 +1,7 @@
 package personalBanker.dialog.model;
 
-import personalBanker.dialog.states.DialogState;
 import personalBanker.messageprovider.MessageProvider;
+import personalBanker.dialog.states.DialogState;
 
 public class DialogContext {
     private final UserSession userSession;
@@ -13,7 +13,6 @@ public class DialogContext {
         this.userSession = userSession;
         this.userInput = userInput;
         this.messageProvider = messageProvider;
-        this.nextState = null;
     }
 
     public UserSession getUserSession() {
@@ -28,7 +27,6 @@ public class DialogContext {
         return messageProvider;
     }
 
-    // Методы для работы с nextState
     public DialogState getNextState() {
         return nextState;
     }
@@ -39,9 +37,5 @@ public class DialogContext {
 
     public boolean hasNextState() {
         return nextState != null;
-    }
-
-    public void clearNextState() {
-        this.nextState = null;
     }
 }

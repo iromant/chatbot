@@ -19,12 +19,16 @@ public class StartState implements DialogState {
 
     @Override
     public String userRequest(DialogContext context) {
-        String input = context.getUserInput();
+        String input = context.getUserInput().toLowerCase().trim();
 
         switch (input) {
             case "/start":
+            case "start":
+            case "старт":
+            case "начать":
                 return "Бот перезапущен!\n\n" + onEnter();
             case "/menu":
+            case "menu":
             case "меню":
                 context.setNextState(new MainState());
                 return "Переход в главное меню...";

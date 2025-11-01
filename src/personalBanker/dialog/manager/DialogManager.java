@@ -1,4 +1,3 @@
-// DialogManager.java
 package personalBanker.dialog.manager;
 
 import personalBanker.dialog.model.*;
@@ -20,18 +19,11 @@ public class DialogManager {
             DialogContext context = new DialogContext(userSession, userInput, messageProvider);
             DialogState currentState = userSession.getCurrentState();
 
-            // Отладочная информация
-            System.out.println("Текущее состояние: " + currentState.getClass().getSimpleName());
-            System.out.println("Ввод пользователя: " + userInput);
-
             String response = currentState.userRequest(context);
             DialogState nextState = currentState.goNextState(context);
 
-            System.out.println("Ответ: " + response);
-            System.out.println("Следующее состояние: " + (nextState != null ? nextState.getClass().getSimpleName() : "null"));
-
             if (nextState != null && nextState != currentState) {
-                performStateTransition(userSession, nextState);
+                userSession.newCurrentState(nextState);
                 String enterMessage = nextState.onEnter();
                 if (enterMessage != null && !enterMessage.trim().isEmpty()) {
                     response += "\n" + enterMessage;
@@ -60,10 +52,4 @@ public class DialogManager {
         userSession.goBack();
         return userSession.getCurrentState().onEnter();
     }
-
-    private void performStateTransition(UserSession session, DialogState nextState) {
-        session.newCurrentState(nextState);
-    }
-
-
 }

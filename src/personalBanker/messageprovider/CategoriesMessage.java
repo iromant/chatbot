@@ -14,7 +14,7 @@ public class CategoriesMessage extends AbstractMessageProvider {
     private void initializeCategories() {
         categories.add(new HelpMessage());
         categories.add(new MenuMessage());
-        categories.add(new SystemMessage());
+        categories.add(new FinanceMessage());
         //позже здесь будет другая реализация, пока мало категорий будет так
     }
 

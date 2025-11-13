@@ -60,3 +60,4 @@ public class DialogManager {
         return "\ud83d\udccb Главное меню:\nВыберите нужное действие:";
     }
 }
+

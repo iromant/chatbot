@@ -43,4 +43,3 @@ public class StartState implements DialogState {
         return (DialogState)(context.hasNextState() ? context.getNextState() : this);
     }
 }
-

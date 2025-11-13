@@ -1,8 +1,3 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
 package personalBanker.dialog.manager;
 
 import personalBanker.dialog.model.DialogContext;
@@ -60,4 +55,3 @@ public class DialogManager {
         return "\ud83d\udccb Главное меню:\nВыберите нужное действие:";
     }
 }
-

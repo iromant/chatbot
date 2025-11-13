@@ -1,4 +1,8 @@
-// StartState.java
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
+
 package personalBanker.dialog.states;
 
 import personalBanker.dialog.model.DialogContext;
@@ -6,34 +10,28 @@ import personalBanker.messageprovider.CategoriesMessage;
 import personalBanker.messageprovider.MessageProvider;
 
 public class StartState implements DialogState {
-    private final MessageProvider messageProvider;
+    private final MessageProvider messageProvider = new CategoriesMessage();
 
-    public StartState() {
-        this.messageProvider = new CategoriesMessage();
-    }
-
-    @Override
     public String onEnter() {
-        return messageProvider.getMessage("welcome");
+        return this.messageProvider.getMessage("welcome");
     }
 
-    @Override
     public String userRequest(DialogContext context) {
-        String input = context.getUserInput().toLowerCase().trim();
-
-        switch (input) {
+        switch (context.getUserInput().toLowerCase().trim()) {
             case "/start":
             case "start":
             case "старт":
             case "начать":
-                return "Бот перезапущен!\n\n" + onEnter();
+                return "Бот перезапущен!\n\n" + this.onEnter();
             case "/menu":
             case "menu":
             case "меню":
                 context.setNextState(new MainState());
                 return "Переход в главное меню...";
             case "/help":
+            case "help":
             case "помощь":
+            case "справка":
                 context.setNextState(new HelpState());
                 return "Переход в справку...";
             default:
@@ -41,8 +39,7 @@ public class StartState implements DialogState {
         }
     }
 
-    @Override
     public DialogState goNextState(DialogContext context) {
-        return context.hasNextState() ? context.getNextState() : this;
+        return (DialogState)(context.hasNextState() ? context.getNextState() : this);
     }
 }

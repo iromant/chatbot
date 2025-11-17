@@ -29,3 +29,4 @@ public class CategoriesMessage extends AbstractMessageProvider {
         return "Composite Messages (All Categories)";
     }
 }
+

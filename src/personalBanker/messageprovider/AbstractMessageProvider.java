@@ -37,3 +37,4 @@ public abstract class AbstractMessageProvider implements MessageProvider {
 
     public abstract String getCategoryName();
 }
+

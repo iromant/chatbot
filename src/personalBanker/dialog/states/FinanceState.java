@@ -1,21 +1,19 @@
 package personalBanker.dialog.states;
 
 import personalBanker.dialog.model.DialogContext;
-import personalBanker.messageprovider.CategoriesMessage;
-import personalBanker.messageprovider.MessageProvider;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.List;
-import java.util.ArrayList;
+import personalBanker.messageprovider.AggregatorMessage;
+
+import java.util.*;
+import java.text.MessageFormat;
 
 public abstract class FinanceState implements DialogState {
-    protected final MessageProvider messageProvider;
+    protected final AggregatorMessage messageProvider;
     protected final Map<String, Double> categories;
-    protected String currentOperation; // "add", "remove", или null
+    protected String currentOperation;
     protected String selectedCategory;
 
     public FinanceState() {
-        this.messageProvider = new CategoriesMessage();
+        this.messageProvider = new AggregatorMessage();
         this.categories = new HashMap<>();
         this.currentOperation = null;
         this.selectedCategory = null;
@@ -33,71 +31,110 @@ public abstract class FinanceState implements DialogState {
     }
 
     @Override
+    public DialogState goNextState(DialogContext context) {
+        return context.hasNextState() ? context.getNextState() : this;
+    }
+    @Override
     public String userRequest(DialogContext context) {
         String input = context.getUserInput().toLowerCase().trim();
 
-        // Если выбрана категория, обрабатываем сумму
+        // Сначала проверяем универсальные команды
+        Optional<String> universalResult = UniversalCommand.executeCommand(input, context, messageProvider);
+        if (universalResult.isPresent()) {
+            return universalResult.get();
+        }
+
+        // 1. Если выбрана категория - обрабатываем сумму
         if (selectedCategory != null && currentOperation != null) {
             return processAmount(input);
         }
 
-        // Если выбрана операция, показываем категории
+        // 2. Если выбрана операция - показываем категории
         if (currentOperation != null) {
             return processCategorySelection(input);
         }
 
-        // Основное меню операций
-        return processOperationMenu(input, context);
+        // 3. Обрабатываем выбор операции из меню
+        return FinanceOperation.fromInput(input)
+                .map(operation -> operation.execute(this, context))
+                .orElse(messageProvider.getMessage("finance.error.unknown") + "\n\n" + buildMainMenu());
     }
 
-    @Override
-    public DialogState goNextState(DialogContext context) {
-        return context.hasNextState() ? context.getNextState() : this;
+    private enum FinanceOperation {
+        ADD("1", "добавить") {
+            @Override
+            public String execute(FinanceState state, DialogContext context) {
+                state.currentOperation = "add";
+                return state.showCategorySelection();
+            }
+        },
+
+        REMOVE("2", "удалить") {
+            @Override
+            public String execute(FinanceState state, DialogContext context) {
+                state.currentOperation = "remove";
+                return state.showCategorySelection();
+            }
+        },
+
+        STATISTICS("3", "статистика", "просмотр") {
+            @Override
+            public String execute(FinanceState state, DialogContext context) {
+                return state.showStatistics();
+            }
+        },
+
+        BACK("4", "назад") {
+            @Override
+            public String execute(FinanceState state, DialogContext context) {
+                context.setNextState(new MainState());
+                return "";
+            }
+        };
+
+        private final Set<String> aliases;
+
+        FinanceOperation(String... aliases) {
+            this.aliases = Set.of(aliases);
+        }
+
+        public abstract String execute(FinanceState state, DialogContext context);
+
+        public static Optional<FinanceOperation> fromInput(String input) {
+            return Arrays.stream(values())
+                    .filter(operation -> operation.aliases.contains(input))
+                    .findFirst();
+        }
     }
 
+    // Остальные методы остаются без изменений
     private String buildMainMenu() {
         return messageProvider.getMessage(getMenuMessageKey());
     }
 
-    private String processOperationMenu(String input, DialogContext context) {
-        switch (input) {
-            case "1":
-            case "добавить":
-                currentOperation = "add";
-                return showCategorySelection();
-            case "2":
-            case "удалить":
-                currentOperation = "remove";
-                return showCategorySelection();
-            case "3":
-            case "статистика":
-            case "просмотр":
-                return showStatistics();
-            case "4":
-            case "назад":
-                context.setNextState(new MainState());
-                return "↩️ Возврат в главное меню...";
-            default:
-                return "❌ Неизвестная команда\n\n" + buildMainMenu();
-        }
-    }
-
     private String showCategorySelection() {
-        StringBuilder sb = new StringBuilder();
-        String operationName = "add".equals(currentOperation) ? "доход" : "расход";
-        sb.append("Выберите категорию для ").append(operationName).append(":\n\n");
+        StringBuilder categoriesMessage = new StringBuilder();
+
+        String operationType = "add".equals(currentOperation) ? "дохода" : "расхода";
+        String header = MessageFormat.format(
+                messageProvider.getMessage("finance.category.selection.header"),
+                operationType
+        );
+        categoriesMessage.append(header).append("\n\n");
 
         List<String> categoryList = new ArrayList<>(categories.keySet());
         for (int i = 0; i < categoryList.size(); i++) {
             String category = categoryList.get(i);
             double amount = categories.getOrDefault(category, 0.0);
-            sb.append(i + 1).append(". ").append(category);
-            sb.append(" (").append(amount).append(" руб.)\n");
+            categoriesMessage.append(i + 1).append(". ").append(category);
+            categoriesMessage.append(" (").append(amount).append(" руб.)\n");
         }
 
-        sb.append("\n").append(categoryList.size() + 1).append(". Отмена");
-        sb.append("\n\nВведите номер категории:");
-        return sb.toString();
+        categoriesMessage.append("\n").append(categoryList.size() + 1).append(". ")
+                .append(messageProvider.getMessage("finance.category.cancel"));
+        categoriesMessage.append("\n\n").append(messageProvider.getMessage("finance.category.prompt"));
+
+        return categoriesMessage.toString();
     }
 
     private String processCategorySelection(String input) {
@@ -107,18 +144,23 @@ public abstract class FinanceState implements DialogState {
 
             if (choice == categoryList.size() + 1) {
                 resetOperation();
-                return "❌ Операция отменена\n\n" + buildMainMenu();
+                return messageProvider.getMessage("finance.operation.cancelled") + "\n\n" + buildMainMenu();
             }
 
             if (choice >= 1 && choice <= categoryList.size()) {
                 selectedCategory = categoryList.get(choice - 1);
-                String operationName = "add".equals(currentOperation) ? "добавления" : "удаления";
-                return "Введите сумму для " + operationName + " в категорию \"" + selectedCategory + "\":";
+                String operationType = "add".equals(currentOperation) ? "добавления" : "удаления";
+
+                return MessageFormat.format(
+                        messageProvider.getMessage("finance.operation.amount.prompt"),
+                        operationType,
+                        selectedCategory
+                );
             } else {
-                return "❌ Неверный номер категории. Попробуйте снова:\n\n" + showCategorySelection();
+                return messageProvider.getMessage("finance.error.invalid.category") + "\n\n" + showCategorySelection();
             }
         } catch (NumberFormatException e) {
-            return "❌ Введите номер категории. Попробуйте снова:\n\n" + showCategorySelection();
+            return messageProvider.getMessage("finance.error.invalid.number") + "\n\n" + showCategorySelection();
         }
     }
 
@@ -126,13 +168,13 @@ public abstract class FinanceState implements DialogState {
         try {
             double amount = Double.parseDouble(input);
             if (amount <= 0) {
-                return "❌ Сумма должна быть положительной. Введите сумму:";
+                return messageProvider.getMessage("finance.error.positive.sum");
             }
 
             return executeFinancialOperation(amount);
 
         } catch (NumberFormatException e) {
-            return "❌ Неверный формат суммы. Введите число:";
+            return messageProvider.getMessage("finance.error.invalid.sum");
         }
     }
 
@@ -140,9 +182,27 @@ public abstract class FinanceState implements DialogState {
         String result;
 
         if ("add".equals(currentOperation)) {
-            result = addSum(selectedCategory, amount);
+            result = MessageFormat.format(
+                    messageProvider.getMessage("finance.operation.added"),
+                    amount,
+                    selectedCategory
+            );
+            categories.put(selectedCategory, categories.getOrDefault(selectedCategory, 0.0) + amount);
         } else {
-            result = removeSum(selectedCategory, amount);
+            double current = categories.getOrDefault(selectedCategory, 0.0);
+            if (amount > current) {
+                result = MessageFormat.format(
+                        messageProvider.getMessage("finance.operation.insufficient"),
+                        current
+                );
+            } else {
+                result = MessageFormat.format(
+                        messageProvider.getMessage("finance.operation.removed"),
+                        amount,
+                        selectedCategory
+                );
+                categories.put(selectedCategory, current - amount);
+            }
         }
 
         resetOperation();
@@ -150,48 +210,36 @@ public abstract class FinanceState implements DialogState {
     }
 
     private String showStatistics() {
-        if (categories.isEmpty() || getTotalAmount() == 0) {
-            return "📊 Статистика пуста\n\n" + buildMainMenu();
+        if (categories.isEmpty()) {
+            return messageProvider.getMessage("finance.statistics.empty") + "\n\n" + buildMainMenu();
         }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("📊 Статистика ").append(getTypeName()).append(":\n\n");
-
+        List<String> categoryItems = new ArrayList<>();
         double total = 0;
+
         for (Map.Entry<String, Double> entry : categories.entrySet()) {
             if (entry.getValue() > 0) {
-                sb.append("• ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" руб.\n");
+                String itemTemplate = messageProvider.getMessage("finance.statistics.item");
+                String categoryItem = MessageFormat.format(itemTemplate, entry.getKey(), entry.getValue());
+                categoryItems.add(categoryItem);
                 total += entry.getValue();
             }
         }
 
-        sb.append("\n💎 Итого: ").append(total).append(" руб.\n\n");
-        sb.append(buildMainMenu());
-        return sb.toString();
+        if (categoryItems.isEmpty()) {
+            return messageProvider.getMessage("finance.statistics.empty") + "\n\n" + buildMainMenu();
+        }
+
+        String categoriesText = String.join("\n", categoryItems);
+        String statisticsTemplate = messageProvider.getMessage(
+                getTypeName().equals("доходов") ? "finance.statistics.income" : "finance.statistics.expense"
+        );
+        String statisticsMessage = MessageFormat.format(statisticsTemplate, categoriesText, total);
+
+        return statisticsMessage + "\n\n" + buildMainMenu();
     }
 
     private void resetOperation() {
         currentOperation = null;
         selectedCategory = null;
-    }
-
-    // Общие методы для работы с финансами
-    public String addSum(String category, double sum) {
-        double current = categories.getOrDefault(category, 0.0);
-        categories.put(category, current + sum);
-        return "✅ Добавлено " + sum + " руб. в категорию \"" + category + "\"";
-    }
-
-    public String removeSum(String category, double sum) {
-        double current = categories.getOrDefault(category, 0.0);
-        if (sum > current) {
-            return "❌ Недостаточно средств. Доступно: " + current + " руб.";
-        }
-        categories.put(category, current - sum);
-        return "✅ Удалено " + sum + " руб. из категории \"" + category + "\"";
-    }
-
-    private double getTotalAmount() {
-        return categories.values().stream().mapToDouble(Double::doubleValue).sum();
     }
 }

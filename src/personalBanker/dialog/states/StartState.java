@@ -1,45 +1,36 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
 package personalBanker.dialog.states;
 
+import personalBanker.messageprovider.AggregatorMessage;
 import personalBanker.dialog.model.DialogContext;
-import personalBanker.messageprovider.CategoriesMessage;
-import personalBanker.messageprovider.MessageProvider;
+
+import java.util.Optional;
 
 public class StartState implements DialogState {
-    private final MessageProvider messageProvider = new CategoriesMessage();
+    private AggregatorMessage messageProvider;
 
+    public StartState() {
+        this.messageProvider = new AggregatorMessage();
+    }
+
+    @Override
     public String onEnter() {
         return this.messageProvider.getMessage("welcome");
     }
 
+    @Override
     public String userRequest(DialogContext context) {
-        switch (context.getUserInput().toLowerCase().trim()) {
-            case "/start":
-            case "start":
-            case "старт":
-            case "начать":
-                return "Бот перезапущен!\n\n" + this.onEnter();
-            case "/menu":
-            case "menu":
-            case "меню":
-                context.setNextState(new MainState());
-                return "Переход в главное меню...";
-            case "/help":
-            case "help":
-            case "помощь":
-            case "справка":
-                context.setNextState(new HelpState());
-                return "Переход в справку...";
-            default:
-                return "Не понял команду, нажмите 'меню' или 'menu' для перехода в главное меню";
+        String input = context.getUserInput().toLowerCase().trim();
+
+        Optional<String> result = UniversalCommand.executeCommand(input, context, messageProvider);
+        if (result.isPresent()) {
+            return result.get();
         }
+
+        return messageProvider.getMessage("finance.error.unknown");
     }
 
+    @Override
     public DialogState goNextState(DialogContext context) {
-        return (DialogState)(context.hasNextState() ? context.getNextState() : this);
+        return context.hasNextState() ? context.getNextState() : this;
     }
 }

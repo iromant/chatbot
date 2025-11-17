@@ -1,15 +1,15 @@
-// HelpState.java
 package personalBanker.dialog.states;
 
 import personalBanker.dialog.model.DialogContext;
-import personalBanker.messageprovider.CategoriesMessage;
-import personalBanker.messageprovider.MessageProvider;
+import personalBanker.messageprovider.AggregatorMessage;
+
+import java.util.Optional;
 
 public class HelpState implements DialogState {
-    private final MessageProvider messageProvider;
+    private final AggregatorMessage messageProvider;
 
     public HelpState() {
-        this.messageProvider = new CategoriesMessage();
+        this.messageProvider = new AggregatorMessage();
     }
 
     @Override
@@ -21,31 +21,12 @@ public class HelpState implements DialogState {
     public String userRequest(DialogContext context) {
         String input = context.getUserInput().toLowerCase().trim();
 
-        switch (input) {
-            case "/start":
-            case "start":
-            case "старт":
-            case "начать":
-                context.setNextState(new StartState());
-                return "Перезапуск бота...";
-            case "/menu":
-            case "menu":
-            case "меню":
-                context.setNextState(new MainState());
-                return "Возвращение на главное меню...";
-            case "/back":
-            case "back":
-            case "назад":
-            case "возврат":
-                if (context.getUserSession().getPreviousState() != null) {
-                    context.setNextState(context.getUserSession().getPreviousState());
-                    return "↩️ Возврат в предыдущее состояние...";
-                } else {
-                    return messageProvider.getMessage("error.operation.cancelled");
-                }
-            default:
-                return messageProvider.getMessage("help.main");
+        Optional<String> result = UniversalCommand.executeCommand(input, context, messageProvider);
+        if (result.isPresent()) {
+            return result.get();
         }
+
+        return messageProvider.getMessage("finance.error.unknown");
     }
 
     @Override

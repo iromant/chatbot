@@ -1,10 +1,11 @@
 package personalBanker.messageprovider;
 
-public class FinanceMessage extends AbstractMessageProvider {
+public class FinanceMessage extends MessageProvider {
 
     public FinanceMessage() {
+        // Меню
         messages.put("finance.income.menu", """
-💵 *Управление доходами*
+УПРАВЛЕНИЕ ДОХОДАМИ
 
 Выберите действие:
 1. Добавить доход
@@ -13,7 +14,7 @@ public class FinanceMessage extends AbstractMessageProvider {
 4. Назад в главное меню""");
 
         messages.put("finance.expense.menu", """
-💸 *Управление расходами*
+УПРАВЛЕНИЕ РАСХОДАМИ
 
 Выберите действие:
 1. Добавить расход
@@ -21,45 +22,46 @@ public class FinanceMessage extends AbstractMessageProvider {
 3. Просмотр статистики расходов
 4. Назад в главное меню""");
 
+        // Операции
         messages.put("finance.operation.add", "Добавить");
         messages.put("finance.operation.remove", "Удалить");
         messages.put("finance.operation.view", "Просмотр статистики");
 
-        // Категории доходов
-        messages.put("finance.income.category.salary", "Работа");
-        messages.put("finance.income.category.passive", "Пассивный доход");
-        messages.put("finance.income.category.mom", "Мама подкинула)");
-        messages.put("finance.income.category.gifts", "Подарки");
-        messages.put("finance.income.category.other", "Другое");
+        // Сообщения выбора категорий
+        messages.put("finance.category.selection.header", "Выберите категорию для {0}:");
+        messages.put("finance.category.cancel", "Отмена");
+        messages.put("finance.category.prompt", "Введите номер категории:");
 
-        // Категории расходов
-        messages.put("finance.expense.category.food", "Еда");
-        messages.put("finance.expense.category.transport", "Транспорт");
-        messages.put("finance.expense.category.home", "Жилье");
-        messages.put("finance.expense.category.freeTime", "Досуг");
-        messages.put("finance.expense.category.health", "Здоровье");
-        messages.put("finance.expense.category.other", "Другое");
+        // Сообщения операций
+        messages.put("finance.operation.amount.prompt", "Введите сумму для {0} в категорию \"{1}\":");
+        messages.put("finance.operation.added", "✅ Добавлено {0} руб. в категорию \"{1}\"");
+        messages.put("finance.operation.removed", "✅ Удалено {0} руб. из категории \"{1}\"");
+        messages.put("finance.operation.insufficient", "❌ Недостаточно средств. Доступно: {0} руб.");
+        messages.put("finance.operation.cancelled", "❌ Операция отменена");
+
+        // Сообщения ошибок
+        messages.put("finance.error.unknown", "❌ Неизвестная команда");
+        messages.put("finance.error.invalid.category", "❌ Неверный номер категории. Попробуйте снова:");
+        messages.put("finance.error.invalid.number", "❌ Введите номер категории. Попробуйте снова:");
+        messages.put("finance.error.positive.sum", "❌ Сумма должна быть положительной. Введите сумму:");
+        messages.put("finance.error.invalid.sum", "❌ Неверный формат суммы. Введите число:");
 
         // Статистика
+        messages.put("finance.statistics.empty", "📊 Статистика пуста");
         messages.put("finance.statistics.income", """
-*Статистика доходов*
+    Статистика доходов
 
 {0}
 
-Общий доход: {1} руб.""");
+💎 Общий доход: {1} руб.""");
 
         messages.put("finance.statistics.expense", """
-*Статистика расходов*
+    Статистика доходов
 
 {0}
 
-Общий расход: {1} руб.""");
+💎 Общий расход: {1} руб.""");
 
         messages.put("finance.statistics.item", "• {0}: {1} руб.");
-    }
-
-    @Override
-    public String getCategoryName() {
-        return "Finance Messages";
     }
 }

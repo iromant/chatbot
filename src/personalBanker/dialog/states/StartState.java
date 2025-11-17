@@ -1,44 +1,32 @@
-// StartState.java
 package personalBanker.dialog.states;
 
+import personalBanker.messageprovider.AggregatorMessage;
 import personalBanker.dialog.model.DialogContext;
-import personalBanker.messageprovider.CategoriesMessage;
-import personalBanker.messageprovider.MessageProvider;
+
+import java.util.Optional;
 
 public class StartState implements DialogState {
-    private final MessageProvider messageProvider;
+    private AggregatorMessage messageProvider;
 
     public StartState() {
-        this.messageProvider = new CategoriesMessage();
+        this.messageProvider = new AggregatorMessage();
     }
 
     @Override
     public String onEnter() {
-        return messageProvider.getMessage("welcome");
+        return this.messageProvider.getMessage("welcome");
     }
 
     @Override
     public String userRequest(DialogContext context) {
         String input = context.getUserInput().toLowerCase().trim();
 
-        switch (input) {
-            case "/start":
-            case "start":
-            case "старт":
-            case "начать":
-                return "Бот перезапущен!\n\n" + onEnter();
-            case "/menu":
-            case "menu":
-            case "меню":
-                context.setNextState(new MainState());
-                return "Переход в главное меню...";
-            case "/help":
-            case "помощь":
-                context.setNextState(new HelpState());
-                return "Переход в справку...";
-            default:
-                return "Не понял команду, нажмите 'меню' или 'menu' для перехода в главное меню";
+        Optional<String> result = UniversalCommand.executeCommand(input, context, messageProvider);
+        if (result.isPresent()) {
+            return result.get();
         }
+
+        return messageProvider.getMessage("finance.error.unknown");
     }
 
     @Override

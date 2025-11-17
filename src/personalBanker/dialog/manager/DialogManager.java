@@ -1,16 +1,14 @@
-//отвечает за управление диалогом с пользователем
 package personalBanker.dialog.manager;
 
 import personalBanker.dialog.model.*;
 import personalBanker.dialog.states.DialogState;
-import personalBanker.messageprovider.AggregatorMessage;
+import personalBanker.messageprovider.MessageProvider;
 
 public class DialogManager {
     private final UserSessionManager sessionManager;
-    private final AggregatorMessage messageProvider;
+    private final MessageProvider messageProvider;
 
-    public DialogManager(UserSessionManager sessionManager,
-                         AggregatorMessage messageProvider) {
+    public DialogManager(UserSessionManager sessionManager, MessageProvider messageProvider) {
         this.sessionManager = sessionManager;
         this.messageProvider = messageProvider;
     }
@@ -18,7 +16,7 @@ public class DialogManager {
     public String processUserInput(Long userId, String userInput) {
         try {
             UserSession userSession = sessionManager.getOrCreateSession(userId);
-            DialogContext context = new DialogContext(userSession, userInput);
+            DialogContext context = new DialogContext(userSession, userInput, messageProvider);
             DialogState currentState = userSession.getCurrentState();
 
             String response = currentState.userRequest(context);
@@ -28,7 +26,7 @@ public class DialogManager {
                 userSession.newCurrentState(nextState);
                 String enterMessage = nextState.onEnter();
                 if (enterMessage != null && !enterMessage.trim().isEmpty()) {
-                    response += enterMessage;
+                    response += "\n" + enterMessage;
                 }
             }
 
@@ -38,5 +36,20 @@ public class DialogManager {
             e.printStackTrace();
             return messageProvider.getMessage("error.general");
         }
+    }
+
+    public String handleUserStart(Long userId) {
+        UserSession userSession = sessionManager.getOrCreateSession(userId);
+        return userSession.getCurrentState().onEnter();
+    }
+
+    public String goBack(Long userId) {
+        UserSession userSession = sessionManager.getSession(userId);
+        if (userSession == null) {
+            return messageProvider.getMessage("error.operation.cancelled");
+        }
+
+        userSession.goBack();
+        return userSession.getCurrentState().onEnter();
     }
 }

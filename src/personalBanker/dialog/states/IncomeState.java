@@ -2,7 +2,6 @@ package personalBanker.dialog.states;
 
 public class IncomeState extends FinanceState {
 
-    //инициализация категорий пока будет такой, пока не начнем добавление и удаление категорий
     @Override
     protected void initializeCategories() {
         categories.put("Работа", 0.0);

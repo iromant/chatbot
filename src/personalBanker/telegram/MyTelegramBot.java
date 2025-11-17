@@ -1,36 +1,32 @@
 // MyTelegramBot.java
 package personalBanker.telegram;
 
-import io.github.cdimascio.dotenv.Dotenv;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import personalBanker.dialog.manager.*;
-import personalBanker.messageprovider.AggregatorMessage;
-import java.util.List;
-import java.util.ArrayList;
+import personalBanker.dialog.manager.DialogManager;
+import personalBanker.dialog.manager.UserSessionManager;
+import personalBanker.messageprovider.CategoriesMessage;
 
 public class MyTelegramBot extends TelegramLongPollingBot {
     private final DialogManager dialogManager;
-    private static final Dotenv dotenv = Dotenv.load();
+
     public MyTelegramBot() {
         this.dialogManager = new DialogManager(
                 new UserSessionManager(),
-                new AggregatorMessage()
+                new CategoriesMessage()
         );
     }
+
     @Override
     public String getBotUsername() {
-        return dotenv.get("BOT_NAME");
+        return "PersonB_bot";
     }
 
     @Override
     public String getBotToken() {
-        return dotenv.get("BOT_TOKEN");
+        return "8409370981:AAFHr-mgozzH1sOEcP8yc0oDhXopeGNvp1Q";
     }
 
     @Override
@@ -41,38 +37,33 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
             System.out.println("Получено сообщение: " + messageText + " от " + chatId);
 
-            String response = this.dialogManager.processUserInput(chatId, messageText);
+            String response;
 
-            this.sendMessageWithButtons(chatId, response);
-        }
-
-    }
-    //это вообще что... Апумпеть, конечно...
-    private void sendMessageWithButtons(Long chatId, String text) {
-        if (text != null && !text.trim().isEmpty()) {
-            SendMessage message = new SendMessage();
-            message.setChatId(String.valueOf(chatId));
-            message.setText(text);
-            ReplyKeyboardMarkup keyboard = new ReplyKeyboardMarkup();
-            keyboard.setResizeKeyboard(true);
-            keyboard.setOneTimeKeyboard(false);
-            List<KeyboardRow> rows = new ArrayList();
-            KeyboardRow row1 = new KeyboardRow();
-            row1.add(new KeyboardButton("Старт"));
-            row1.add(new KeyboardButton("Назад"));
-            row1.add(new KeyboardButton("Меню"));
-            row1.add(new KeyboardButton("Справка"));
-            rows.add(row1);
-            keyboard.setKeyboard(rows);
-            message.setReplyMarkup(keyboard);
-
-            try {
-                this.execute(message);
-            } catch (TelegramApiException e) {
-                System.err.println("Ошибка отправки сообщения с кнопками: " + e.getMessage());
-                e.printStackTrace();
+            if ("/start".equals(messageText)) {
+                response = dialogManager.handleUserStart(chatId);
+            } else if ("/back".equals(messageText) || "назад".equals(messageText)) {
+                response = dialogManager.goBack(chatId);
+            } else {
+                response = dialogManager.processUserInput(chatId, messageText);
             }
 
+            sendMessage(chatId, response);
+        }
+    }
+
+    private void sendMessage(Long chatId, String text) {
+        if (text == null || text.trim().isEmpty()) return;
+
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(text);
+
+        try {
+            execute(message);
+            System.out.println("Сообщение отправлено: " + text);
+        } catch (TelegramApiException e) {
+            System.err.println("Ошибка отправки сообщения: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

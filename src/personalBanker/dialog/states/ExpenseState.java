@@ -2,7 +2,6 @@ package personalBanker.dialog.states;
 
 public class ExpenseState extends FinanceState {
 
-    //инициализация категорий пока будет такой, пока не начнем добавление и удаление категорий
     @Override
     protected void initializeCategories() {
         categories.put("Еда", 0.0);
@@ -14,8 +13,12 @@ public class ExpenseState extends FinanceState {
     }
 
     @Override
-    protected String getMenuMessageKey() {return "finance.expense.menu";}
+    protected String getMenuMessageKey() {
+        return "finance.expense.menu"; // Меняем на expense.menu
+    }
 
     @Override
-    protected String getTypeName() {return "расходов";}
+    protected String getTypeName() {
+        return "расходов"; // Меняем на расходов
+    }
 }

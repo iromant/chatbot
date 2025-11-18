@@ -21,7 +21,7 @@ public class HelpState implements DialogState {
     public String userRequest(DialogContext context) {
         String input = context.getUserInput().toLowerCase().trim();
 
-        Optional<String> result = UniversalCommand.executeCommand(input, context, messageProvider);
+        Optional<String> result = UniversalCommand.executeCommand(input, context);
         if (result.isPresent()) {
             return result.get();
         }

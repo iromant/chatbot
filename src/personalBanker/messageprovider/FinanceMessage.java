@@ -10,8 +10,7 @@ public class FinanceMessage extends MessageProvider {
 Выберите действие:
 1. Добавить доход
 2. Удалить доход
-3. Просмотр статистики доходов
-4. Назад в главное меню""");
+3. Просмотр статистики доходов""");
 
         messages.put("finance.expense.menu", """
 УПРАВЛЕНИЕ РАСХОДАМИ
@@ -19,8 +18,7 @@ public class FinanceMessage extends MessageProvider {
 Выберите действие:
 1. Добавить расход
 2. Удалить расход
-3. Просмотр статистики расходов
-4. Назад в главное меню""");
+3. Просмотр статистики расходов""");
 
         // Операции
         messages.put("finance.operation.add", "Добавить");
@@ -29,7 +27,6 @@ public class FinanceMessage extends MessageProvider {
 
         // Сообщения выбора категорий
         messages.put("finance.category.selection.header", "Выберите категорию для {0}:");
-        messages.put("finance.category.cancel", "Отмена");
         messages.put("finance.category.prompt", "Введите номер категории:");
 
         // Сообщения операций

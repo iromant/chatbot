@@ -28,7 +28,7 @@ public class DialogManager {
                 userSession.newCurrentState(nextState);
                 String enterMessage = nextState.onEnter();
                 if (enterMessage != null && !enterMessage.trim().isEmpty()) {
-                    response += enterMessage;
+                    response = enterMessage;
                 }
             }
 

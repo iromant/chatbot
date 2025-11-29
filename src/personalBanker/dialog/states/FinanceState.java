@@ -12,11 +12,21 @@ public abstract class FinanceState implements DialogState {
     protected String currentOperation;
     protected String selectedCategory;
 
+    // Enum для подсостояний
+    protected enum SubState {
+        MAIN_MENU,          // Главное меню доходов/расходов
+        CATEGORY_SELECTION, // Выбор категории
+        AMOUNT_INPUT        // Ввод суммы
+    }
+
+    protected SubState currentSubState;
+
     public FinanceState() {
         this.messageProvider = new AggregatorMessage();
         this.categories = new HashMap<>();
         this.currentOperation = null;
         this.selectedCategory = null;
+        this.currentSubState = SubState.MAIN_MENU;
         initializeCategories();
     }
 
@@ -39,6 +49,15 @@ public abstract class FinanceState implements DialogState {
     public String userRequest(DialogContext context) {
         String input = context.getUserInput();
 
+        // Обработка кнопки "Назад"
+        if ((input.toLowerCase().equals("назад") || input.equals("BACK")) &&
+                currentSubState != SubState.MAIN_MENU) {
+            return handleBackButton();
+        } else if (input.toLowerCase().startsWith("доход") ||
+                input.toLowerCase().startsWith("расход")) {
+            return onEnter();
+        }
+
         // Сначала обрабатываем универсальные команды
         Optional<String> universalResult = UniversalCommand.executeCommand(input, context);
         if (universalResult.isPresent()) {
@@ -47,11 +66,16 @@ public abstract class FinanceState implements DialogState {
                 return result;
             }
             // Если результат пустой - команда обработана, но нужно остаться в текущем состоянии
-            return onEnter();
+            return getCurrentStateMessage();
         }
 
         // Затем обрабатываем финансовые операции
         return handleFinancialInput(input);
+    }
+
+    @Override
+    public String getCurrentSubState() {
+        return currentSubState.name();
     }
 
     private String handleFinancialInput(String input) {
@@ -60,7 +84,6 @@ public abstract class FinanceState implements DialogState {
                 || input.startsWith("CATEGORY_")) {
             return handleCallback(input);
         }
-
 
         // Обработка текстового ввода для финансовых операций
         return handleTextInput(input.toLowerCase().trim());
@@ -71,15 +94,18 @@ public abstract class FinanceState implements DialogState {
             case "INCOME_ADD":
             case "EXPENSE_ADD":
                 currentOperation = "add";
+                currentSubState = SubState.CATEGORY_SELECTION;
                 return showCategorySelection();
 
             case "INCOME_REMOVE":
             case "EXPENSE_REMOVE":
                 currentOperation = "remove";
+                currentSubState = SubState.CATEGORY_SELECTION;
                 return showCategorySelection();
 
             case "INCOME_STATS":
             case "EXPENSE_STATS":
+                currentSubState = SubState.MAIN_MENU;
                 return showStatistics();
 
             default:
@@ -88,6 +114,7 @@ public abstract class FinanceState implements DialogState {
                             .replace("INCOME_", "")
                             .replace("EXPENSE_", "");
                     selectedCategory = category;
+                    currentSubState = SubState.AMOUNT_INPUT;
                     String operationType = "add".equals(currentOperation) ? "добавления" : "удаления";
                     return MessageFormat.format(
                             messageProvider.getMessage("finance.operation.amount.prompt"),
@@ -99,26 +126,77 @@ public abstract class FinanceState implements DialogState {
     }
 
     private String handleTextInput(String input) {
-        // Если выбрана категория - обрабатываем сумму
-        if (selectedCategory != null && currentOperation != null) {
+        // Если находимся в состоянии ввода суммы - обрабатываем сумму
+        if (currentSubState == SubState.AMOUNT_INPUT && selectedCategory != null && currentOperation != null) {
             return processAmount(input);
         }
 
-        // Обработка операций
+        // Обработка операций в главном меню
         switch (input) {
             case "добавить":
+            case "add":
                 currentOperation = "add";
+                currentSubState = SubState.CATEGORY_SELECTION;
                 return showCategorySelection();
 
             case "удалить":
+            case "remove":
                 currentOperation = "remove";
+                currentSubState = SubState.CATEGORY_SELECTION;
                 return showCategorySelection();
 
             case "статистика":
+            case "stats":
+            case "statistics":
+                currentSubState = SubState.MAIN_MENU;
                 return showStatistics();
 
+            case "меню":
+            case "menu":
+                currentSubState = SubState.MAIN_MENU;
+                return onEnter();
+
             default:
-                return messageProvider.getMessage("finance.error.unknown") + "\n\n" + onEnter();
+                return messageProvider.getMessage("finance.error.unknown") + "\n\n" + getCurrentStateMessage();
+        }
+    }
+
+    private String handleBackButton() {
+        switch (currentSubState) {
+            case AMOUNT_INPUT:
+                // Если вводим сумму - возвращаемся к выбору категории
+                currentSubState = SubState.CATEGORY_SELECTION;
+                selectedCategory = null;
+                return showCategorySelection();
+
+            case CATEGORY_SELECTION:
+                // Если выбираем категорию - возвращаемся в главное меню доходов/расходов
+                currentSubState = SubState.MAIN_MENU;
+                currentOperation = null;
+                selectedCategory = null;
+                return onEnter();
+
+            case MAIN_MENU:
+            default:
+                // Если уже в главном меню - остаемся здесь
+                return onEnter();
+        }
+    }
+
+    private String getCurrentStateMessage() {
+        switch (currentSubState) {
+            case MAIN_MENU:
+                return onEnter();
+            case CATEGORY_SELECTION:
+                return showCategorySelection();
+            case AMOUNT_INPUT:
+                String operationType = "add".equals(currentOperation) ? "добавления" : "удаления";
+                return MessageFormat.format(
+                        messageProvider.getMessage("finance.operation.amount.prompt"),
+                        operationType, selectedCategory
+                );
+            default:
+                return onEnter();
         }
     }
 
@@ -133,7 +211,7 @@ public abstract class FinanceState implements DialogState {
 
         for (String category : categories.keySet()) {
             double amount = categories.getOrDefault(category, 0.0);
-            categoriesMessage.append("• ").append(category).append(" ").append(amount).append(" руб\n");
+            categoriesMessage.append("• ").append(category).append(": ").append(amount).append(" руб\n");
         }
 
         return categoriesMessage.toString();
@@ -143,11 +221,11 @@ public abstract class FinanceState implements DialogState {
         try {
             double amount = Double.parseDouble(input);
             if (amount <= 0) {
-                return messageProvider.getMessage("finance.error.positive.sum");
+                return messageProvider.getMessage("finance.error.positive.sum") + "\n\n" + getCurrentStateMessage();
             }
             return executeFinancialOperation(amount);
         } catch (NumberFormatException e) {
-            return messageProvider.getMessage("finance.error.invalid.sum");
+            return messageProvider.getMessage("finance.error.invalid.sum") + "\n\n" + getCurrentStateMessage();
         }
     }
 
@@ -176,13 +254,14 @@ public abstract class FinanceState implements DialogState {
             }
         }
 
+        // После операции возвращаемся в главное меню
         resetOperation();
         return result + "\n\n" + onEnter();
     }
 
     private String showStatistics() {
         if (categories.values().stream().allMatch(amount -> amount == 0)) {
-            return messageProvider.getMessage("finance.statistics.empty");
+            return messageProvider.getMessage("finance.statistics.empty") + "\n\n" + onEnter();
         }
 
         StringBuilder stats = new StringBuilder();
@@ -211,5 +290,7 @@ public abstract class FinanceState implements DialogState {
     private void resetOperation() {
         currentOperation = null;
         selectedCategory = null;
+        currentSubState = SubState.MAIN_MENU;
     }
+
 }

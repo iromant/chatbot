@@ -8,6 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import personalBanker.dialog.manager.*;
+import personalBanker.dialog.states.DialogState;
 import personalBanker.messageprovider.AggregatorMessage;
 
 public class MyTelegramBot extends TelegramLongPollingBot {
@@ -48,34 +49,36 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
     private void handleTextMessage(Update update) {
         String userInput = update.getMessage().getText();
-        Long chatId = update.getMessage().getChatId();
+        Long userId = update.getMessage().getChatId();
 
-        System.out.println("Текст: " + userInput + " от " + chatId);
+        System.out.println("Текст: " + userInput + " от " + userId);
 
         // Обрабатываем ввод
-        String response = dialogManager.processUserInput(chatId, userInput);
+        System.out.println(dialogManager.getCurrentState(userId).getClass().getSimpleName());
+        String response = dialogManager.processUserInput(userId, userInput);
+        System.out.println(dialogManager.getCurrentState(userId).getClass().getSimpleName());
 
         // Определяем inline клавиатуру
         InlineKeyboardMarkup inlineKeyboard = getInlineKeyboard(userInput, response);
 
         // Отправляем ответ с inline кнопками
-        sendMessage(chatId, response, inlineKeyboard);
+        sendMessage(userId, response, inlineKeyboard);
     }
 
     private void handleCallbackQuery(Update update) {
         String callbackData = update.getCallbackQuery().getData();
-        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Long userId = update.getCallbackQuery().getMessage().getChatId();
 
-        System.out.println("Callback: " + callbackData + " от " + chatId);
+        System.out.println("Callback: " + callbackData + " от " + userId);
 
         // Обрабатываем callback
-        String response = dialogManager.processUserInput(chatId, callbackData);
+        String response = dialogManager.processUserInput(userId, callbackData);
 
         // Определяем inline клавиатуру для callback
-        InlineKeyboardMarkup inlineKeyboard = getInlineKeyboardForCallback(callbackData, response);
+        InlineKeyboardMarkup inlineKeyboard = getInlineKeyboardForCallback(userId, callbackData, response);
 
         // Отправляем новый ответ с обновленными кнопками
-        sendMessage(chatId, response, inlineKeyboard);
+        sendMessage(userId, response, inlineKeyboard);
     }
 
     private InlineKeyboardMarkup getInlineKeyboard(String userInput, String response) {
@@ -92,8 +95,10 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                 return KeyboardManager.getMainMenuKeyboard();
 
             case "доходы":
+            case "доход":
                 return KeyboardManager.getIncomeMenuKeyboard();
             case "расходы":
+            case "расход":
                 return KeyboardManager.getExpenseMenuKeyboard();
 
             case "справка":
@@ -104,7 +109,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         return getKeyboardByResponseContext(response);
     }
 
-    private InlineKeyboardMarkup getInlineKeyboardForCallback(String callbackData, String response) {
+    private InlineKeyboardMarkup getInlineKeyboardForCallback(Long userId, String callbackData, String response) {
         // Определяем клавиатуру по callback данным
         switch (callbackData) {
             case "MAIN_MENU":
@@ -130,7 +135,10 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                 return KeyboardManager.getHelpKeyboard();
 
             case "BACK":
-                return getKeyboardByResponseContext(response);
+                String currentState = dialogManager.getCurrentState(userId).getClass().getSimpleName();
+                String subState = dialogManager.getCurrentSubState(userId);
+                System.out.println("DEBUG: state=" + currentState + ", subState=" + subState);
+                return KeyboardManager.getResponseContextKeyboard(currentState, subState);
 
             default:
                 if (callbackData.startsWith("CATEGORY_")) {
@@ -168,16 +176,16 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             return KeyboardManager.getMainMenuKeyboard();
         }
 
-        return KeyboardManager.getResponseContextKeyboard();
+        return KeyboardManager.getResponseContextKeyboard("", "");
     }
 
-    private void sendMessage(Long chatId, String text, InlineKeyboardMarkup inlineKeyboard) {
+    private void sendMessage(Long userId, String text, InlineKeyboardMarkup inlineKeyboard) {
         if (text == null || text.trim().isEmpty()) {
             text = "Произошла ошибка";
         }
 
         SendMessage message = new SendMessage();
-        message.setChatId(chatId.toString());
+        message.setChatId(userId.toString());
         message.setText(text);
 
         // Устанавливаем inline клавиатуру
@@ -185,7 +193,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
         try {
             execute(message);
-            System.out.println("Отправлено сообщение с inline кнопками для " + chatId);
+            System.out.println("Отправлено сообщение с inline кнопками для " + userId);
         } catch (TelegramApiException e) {
             System.err.println("Ошибка отправки: " + e.getMessage());
             e.printStackTrace();

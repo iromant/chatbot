@@ -23,7 +23,6 @@ public class DialogManager {
 
             String response = currentState.userRequest(context);
             DialogState nextState = currentState.goNextState(context);
-
             if (nextState != null && nextState != currentState) {
                 userSession.newCurrentState(nextState);
                 String enterMessage = nextState.onEnter();
@@ -38,5 +37,14 @@ public class DialogManager {
             e.printStackTrace();
             return messageProvider.getMessage("error.general");
         }
+    }
+
+    public DialogState getCurrentState(Long userId) {
+        UserSession userSession = sessionManager.getOrCreateSession(userId);
+        return userSession.getCurrentState();
+    }
+
+    public String getCurrentSubState(Long userId) {
+        return getCurrentState(userId).getCurrentSubState();
     }
 }

@@ -161,15 +161,34 @@ public class KeyboardManager {
         return new InlineKeyboardMarkup(keyboard);
     }
 
-    public static InlineKeyboardMarkup getResponseContextKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+    public static InlineKeyboardMarkup getResponseContextKeyboard(String currentState, String subState) {
+        switch (currentState) {
+            case "StartState":
+                return getStartMenuKeyboard();
+            case "HelpState":
+                return getHelpKeyboard();
+            case "MainState":
+                return getMainMenuKeyboard();
+            case "ExpenseState":
+            case "IncomeState":
+                if(subState.equals("CATEGORY_SELECTION")) {
+                    return "IncomeState".equals(currentState)
+                            ? getIncomeCategoriesKeyboard()
+                            : getExpenseCategoriesKeyboard();
+                }
+                return "IncomeState".equals(currentState)
+                        ? getIncomeMenuKeyboard()
+                        : getExpenseMenuKeyboard();
+            default:
+                List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
-        List<InlineKeyboardButton> row = new ArrayList<>();
-        row.add(createInlineButton("Справка", "HELP"));
-        row.add(createInlineButton("Меню", "MAIN_MENU"));
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                row.add(createInlineButton("Справка", "HELP"));
+                row.add(createInlineButton("Назад", "BACK"));
 
-        keyboard.add(row);
-        return new InlineKeyboardMarkup(keyboard);
+                keyboard.add(row);
+                return new InlineKeyboardMarkup(keyboard);
+        }
     }
 
     private static InlineKeyboardButton createInlineButton(String text, String callbackData) {

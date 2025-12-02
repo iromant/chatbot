@@ -1,15 +1,20 @@
 package personalBanker.dialog.states;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class IncomeState extends FinanceState {
 
-    //инициализация категорий пока будет такой, пока не начнем добавление и удаление категорий
+    public IncomeState(Long userId) {
+        super(userId);
+    }
+
     @Override
     protected void initializeCategories() {
         categories.put("Работа", 0.0);
         categories.put("Пассивный доход", 0.0);
-        categories.put("Мама подкинула)", 0.0);
+        categories.put("Инвестиции", 0.0);
         categories.put("Подарки", 0.0);
-        categories.put("Другое", 0.0);
     }
 
     @Override
@@ -20,5 +25,10 @@ public class IncomeState extends FinanceState {
     @Override
     protected String getTypeName() {
         return "доходов";
+    }
+
+    @Override
+    protected Set<String> getBaseCategories() {
+        return Set.of("Работа", "Пассивный доход", "Инвестиции", "Подарки");
     }
 }

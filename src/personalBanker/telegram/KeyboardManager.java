@@ -3,11 +3,23 @@ package personalBanker.telegram;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class KeyboardManager {
+
+    private static final Map<Long, Map<String, List<String>>> userCategoriesCache = new HashMap<>();
+
+    public static void updateUserCategories(Long userId, String type, List<String> categories) {
+        userCategoriesCache
+                .computeIfAbsent(userId, k -> new HashMap<>())
+                .put(type, categories);
+    }
+
+    public static List<String> getUserCategories(Long userId, String type) {
+        return userCategoriesCache
+                .getOrDefault(userId, new HashMap<>())
+                .getOrDefault(type, new ArrayList<>());
+    }
 
     public static InlineKeyboardMarkup getStartMenuKeyboard() {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
@@ -33,14 +45,23 @@ public class KeyboardManager {
 
         List<InlineKeyboardButton> row2 = new ArrayList<>();
         row2.add(createInlineButton("Справка", "HELP"));
-        row2.add(createInlineButton("Назад", "BACK"));
+        row2.add(createInlineButton("Удалить данные", "CLEAR_MY_DATA"));
 
         keyboard.add(row1);
         keyboard.add(row2);
 
         return new InlineKeyboardMarkup(keyboard);
     }
+    public static InlineKeyboardMarkup getClearDataConfirmationKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(createInlineButton("Да, удалить всё", "CONFIRM_CLEAR_DATA"));
+        row1.add(createInlineButton("Нет, отменить", "CANCEL_CLEAR_DATA"));
+
+        keyboard.add(row1);
+        return new InlineKeyboardMarkup(keyboard);
+    }
     public static InlineKeyboardMarkup getIncomeMenuKeyboard() {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
@@ -85,38 +106,18 @@ public class KeyboardManager {
         return new InlineKeyboardMarkup(keyboard);
     }
 
-    // Клавиатура для выбора категории при добавлении/удалении дохода/расхода (ТОЛЬКО категории + Назад)
-    public static InlineKeyboardMarkup getIncomeCategoriesSelectionKeyboard() {
-        List<String> categories = Arrays.asList(
-                "Работа", "Пассивный доход", "Инвестиции", "Подарки"
-        );
+    public static InlineKeyboardMarkup getDynamicIncomeCategoriesKeyboard(Long userId) {
+        List<String> baseCategories = Arrays.asList("Работа", "Пассивный доход", "Инвестиции", "Подарки");
+        List<String> userCategories = getUserCategories(userId, "income");
 
-        return getSelectionCategoriesKeyboard(categories, "INCOME");
+        return getSelectionCategoriesKeyboard(baseCategories, userCategories, "INCOME");
     }
 
-    public static InlineKeyboardMarkup getExpenseCategoriesSelectionKeyboard() {
-        List<String> categories = Arrays.asList(
-                "Еда", "Транспорт", "Жилье", "Досуг", "Здоровье"
-        );
+    public static InlineKeyboardMarkup getDynamicExpenseCategoriesKeyboard(Long userId) {
+        List<String> baseCategories = Arrays.asList("Еда", "Транспорт", "Жилье", "Досуг", "Здоровье");
+        List<String> userCategories = getUserCategories(userId, "expense");
 
-        return getSelectionCategoriesKeyboard(categories, "EXPENSE");
-    }
-
-    // отдельное сеню для управления категориями(ибо нефиг все в одно)
-    public static InlineKeyboardMarkup getIncomeCategoriesManagementKeyboard() {
-        List<String> categories = Arrays.asList(
-                "Работа", "Пассивный доход", "Инвестиции", "Подарки"
-        );
-
-        return getManagementCategoriesKeyboard(categories, "INCOME");
-    }
-
-    public static InlineKeyboardMarkup getExpenseCategoriesManagementKeyboard() {
-        List<String> categories = Arrays.asList(
-                "Еда", "Транспорт", "Жилье", "Досуг", "Здоровье"
-        );
-
-        return getManagementCategoriesKeyboard(categories, "EXPENSE");
+        return getSelectionCategoriesKeyboard(baseCategories, userCategories, "EXPENSE");
     }
 
     public static InlineKeyboardMarkup getAmountInputKeyboard() {
@@ -144,12 +145,11 @@ public class KeyboardManager {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
         List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Добавить категорию", "ADD_CATEGORY"));
-        row1.add(createInlineButton("Удалить категорию", "REMOVE_CATEGORY"));
+        row1.add(createInlineButton("Добавить", "ADD_CATEGORY"));
+        row1.add(createInlineButton("Удалить", "REMOVE_CATEGORY"));
 
         List<InlineKeyboardButton> row2 = new ArrayList<>();
         row2.add(createInlineButton("Назад", "BACK"));
-        row2.add(createInlineButton("Меню", "MAIN_MENU"));
 
         keyboard.add(row1);
         keyboard.add(row2);
@@ -167,10 +167,34 @@ public class KeyboardManager {
         return new InlineKeyboardMarkup(keyboard);
     }
 
-    public static InlineKeyboardMarkup getResponseContextKeyboard(String currentState, String subState, String responseText) {
+    public static InlineKeyboardMarkup getYesNoKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row = new ArrayList<>();
+        row.add(createInlineButton("Да", "YES"));
+        row.add(createInlineButton("Нет", "NO"));
+
+        keyboard.add(row);
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    public static InlineKeyboardMarkup getResponseContextKeyboard(String currentState,
+                                                                  String subState,
+                                                                  String responseText,
+                                                                  Long userId) {
+
+        if (responseText.contains("Хотите создать новую категорию?")) {
+            return getYesNoKeyboard();
+        }
+
+        if (responseText.contains("ВНИМАНИЕ") && responseText.contains("удалить ВСЕ ваши данные")) {
+            return getClearDataConfirmationKeyboard();
+        }
+
         if (responseText.contains("Управление категориями") ||
                 responseText.contains("успешно добавлена") ||
                 responseText.contains("успешно удалена")) {
+
             return getCategoryManagementKeyboard();
         }
 
@@ -178,15 +202,16 @@ public class KeyboardManager {
             return getAmountInputKeyboard();
         }
 
-        if (responseText.contains("Выберите категорию") ||
+        if ((responseText.contains("Выберите категорию") ||
                 responseText.contains("Доступные категории") ||
-                (responseText.contains("категорию") &&
-                        !responseText.contains("Управление категориями") &&
-                        !responseText.contains("успешно"))) {
+                responseText.contains("Добавление") ||
+                responseText.contains("Удаление")) &&
+                !responseText.contains("Управление категориями")) {
+
             if ("IncomeState".equals(currentState)) {
-                return getIncomeCategoriesSelectionKeyboard();
+                return getDynamicIncomeCategoriesKeyboard(userId);
             } else if ("ExpenseState".equals(currentState)) {
-                return getExpenseCategoriesSelectionKeyboard();
+                return getDynamicExpenseCategoriesKeyboard(userId);
             }
         }
 
@@ -195,33 +220,34 @@ public class KeyboardManager {
             return getBackOnlyKeyboard();
         }
 
-        // Стандартная логика по состоянию и подсостоянию
-        return getResponseContextKeyboard(currentState, subState);
+        return getResponseContextKeyboard(currentState, subState, userId);
     }
 
-    public static InlineKeyboardMarkup getResponseContextKeyboard(String currentState, String subState) {
-        // Если состояние FinanceState и подсостояние CATEGORY_MANAGEMENT
+    public static InlineKeyboardMarkup getResponseContextKeyboard(String currentState,
+                                                                  String subState,
+                                                                  Long userId) {
+
+
         if (("ExpenseState".equals(currentState) || "IncomeState".equals(currentState))
                 && "CATEGORY_MANAGEMENT".equals(subState)) {
             return getCategoryManagementKeyboard();
         }
 
-        // Если состояние FinanceState и подсостояние ADD_CATEGORY или REMOVE_CATEGORY
         if (("ExpenseState".equals(currentState) || "IncomeState".equals(currentState))
                 && ("ADD_CATEGORY".equals(subState) || "REMOVE_CATEGORY".equals(subState))) {
             return getBackOnlyKeyboard();
         }
 
-        // Если состояние FinanceState и подсостояние CATEGORY_SELECTION
         if (("ExpenseState".equals(currentState) || "IncomeState".equals(currentState))
                 && "CATEGORY_SELECTION".equals(subState)) {
-            // Для выбора категории при добавлении/удалении показываем ТОЛЬКО категории
-            return "IncomeState".equals(currentState)
-                    ? getIncomeCategoriesSelectionKeyboard()
-                    : getExpenseCategoriesSelectionKeyboard();
+
+            if ("IncomeState".equals(currentState)) {
+                return getDynamicIncomeCategoriesKeyboard(userId);
+            } else {
+                return getDynamicExpenseCategoriesKeyboard(userId);
+            }
         }
 
-        // Если состояние FinanceState и подсостояние AMOUNT_INPUT
         if (("ExpenseState".equals(currentState) || "IncomeState".equals(currentState))
                 && "AMOUNT_INPUT".equals(subState)) {
             return getAmountInputKeyboard();
@@ -243,19 +269,25 @@ public class KeyboardManager {
         }
     }
 
-    // Клавиатура для ВЫБОРА категорий (при добавлении/удалении дохода/расхода) - ТОЛЬКО КАТЕГОРИИ(ДА КОСТЫЛИ А КОМУ НОГИ НЕ ЛОМАЛИ) + Назад
-    private static InlineKeyboardMarkup getSelectionCategoriesKeyboard(List<String> categories, String type) {
+    private static InlineKeyboardMarkup getSelectionCategoriesKeyboard(List<String> baseCategories,
+                                                                       List<String> userCategories,
+                                                                       String type) {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
+        List<String> allCategories = new ArrayList<>(baseCategories);
+        if (userCategories != null) {
+            allCategories.addAll(userCategories);
+        }
+
         List<InlineKeyboardButton> currentRow = new ArrayList<>();
-        for (int i = 0; i < categories.size(); i++) {
-            String category = categories.get(i);
+        for (int i = 0; i < allCategories.size(); i++) {
+            String category = allCategories.get(i);
             String callbackData = "CATEGORY_" + type + "_" + category;
 
             InlineKeyboardButton button = createInlineButton(category, callbackData);
             currentRow.add(button);
 
-            if (currentRow.size() == 2 || i == categories.size() - 1) {
+            if (currentRow.size() == 2 || i == allCategories.size() - 1) {
                 keyboard.add(new ArrayList<>(currentRow));
                 currentRow.clear();
             }
@@ -268,42 +300,33 @@ public class KeyboardManager {
         return new InlineKeyboardMarkup(keyboard);
     }
 
-    private static InlineKeyboardMarkup getManagementCategoriesKeyboard(List<String> categories, String type) {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> currentRow = new ArrayList<>();
-        for (int i = 0; i < categories.size(); i++) {
-            String category = categories.get(i);
-            String callbackData = "CATEGORY_" + type + "_" + category;
-
-            InlineKeyboardButton button = createInlineButton(category, callbackData);
-            currentRow.add(button);
-
-            if (currentRow.size() == 2 || i == categories.size() - 1) {
-                keyboard.add(new ArrayList<>(currentRow));
-                currentRow.clear();
-            }
-        }
-
-        // Кнопки управления категориями
-        List<InlineKeyboardButton> manageRow1 = new ArrayList<>();
-        manageRow1.add(createInlineButton("Добавить категорию", "ADD_CATEGORY"));
-        manageRow1.add(createInlineButton("Удалить категорию", "REMOVE_CATEGORY"));
-
-        List<InlineKeyboardButton> manageRow2 = new ArrayList<>();
-        manageRow2.add(createInlineButton("Назад", "BACK"));
-        manageRow2.add(createInlineButton("Меню", "MAIN_MENU"));
-
-        keyboard.add(manageRow1);
-        keyboard.add(manageRow2);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
     private static InlineKeyboardButton createInlineButton(String text, String callbackData) {
         InlineKeyboardButton button = new InlineKeyboardButton();
         button.setText(text);
         button.setCallbackData(callbackData);
         return button;
+    }
+
+    public static void updateCategoriesFromFinanceState(Long userId, personalBanker.dialog.states.FinanceState financeState) {
+        if (financeState == null) return;
+
+        try {
+            Map<String, Double> allCategories = financeState.getCategoriesMap();
+            Set<String> baseCategories = financeState.getBaseCategories();
+
+            List<String> userCategoryNames = new ArrayList<>();
+
+            for (String category : allCategories.keySet()) {
+                if (!baseCategories.contains(category)) {
+                    userCategoryNames.add(category);
+                }
+            }
+
+            String type = financeState.getClass().getSimpleName().contains("Income") ? "income" : "expense";
+            updateUserCategories(userId, type, userCategoryNames);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -1,7 +1,6 @@
 package personalBanker.dialog.states;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class ExpenseState extends FinanceState {
 
@@ -24,12 +23,17 @@ public class ExpenseState extends FinanceState {
     }
 
     @Override
-    protected String getTypeName() {
+    public String getTypeName() {
         return "расходов";
     }
 
     @Override
-    protected Set<String> getBaseCategories() {
-        return Set.of("Еда", "Транспорт", "Жилье", "Досуг", "Здоровье");
+    public Set<String> getBaseCategories() {
+        return new HashSet<>(Arrays.asList("Еда", "Транспорт", "Жилье", "Досуг", "Здоровье"));
+    }
+
+    @Override
+    public Map<String, Double> getCategoriesMap() {
+        return new LinkedHashMap<>(categories);
     }
 }

@@ -41,8 +41,9 @@ public abstract class FinanceState implements DialogState {
 
     protected abstract void initializeCategories();
     protected abstract String getMenuMessageKey();
-    protected abstract String getTypeName();
-    protected abstract Set<String> getBaseCategories();
+    public abstract String getTypeName();
+    public abstract Set<String> getBaseCategories();
+    public abstract Map<String, Double> getCategoriesMap();
 
     protected void loadUserCategories() {
         Map<String, Double> userCategories = UserCategoryStorage.loadUserCategories(
@@ -99,7 +100,7 @@ public abstract class FinanceState implements DialogState {
 
         if (input.equals("REMOVE_CATEGORY")) {
             currentSubState = SubState.REMOVE_CATEGORY;
-            return showCategorySelection() + "\n\nВведите название категории для удаления:";
+            return showCategorySelectionForRemoval();
         }
 
         if ((input.equalsIgnoreCase("назад") || input.equals("BACK")) &&
@@ -107,7 +108,6 @@ public abstract class FinanceState implements DialogState {
             return handleBackButton();
         }
 
-        // Сначала обрабатываем универсальные команды
         Optional<String> universalResult = UniversalCommand.executeCommand(input, context);
         if (universalResult.isPresent()) {
             String result = universalResult.get();
@@ -117,7 +117,6 @@ public abstract class FinanceState implements DialogState {
             return getCurrentStateMessage();
         }
 
-        // Затем обрабатываем финансовые операции
         return handleFinancialInput(input);
     }
 
@@ -127,14 +126,14 @@ public abstract class FinanceState implements DialogState {
     }
 
     private String handleFinancialInput(String input) {
-        // Обработка callback данных для финансовых операций
         if (input.startsWith("INCOME_") || input.startsWith("EXPENSE_")
-                || input.startsWith("CATEGORY_")) {
+                || input.startsWith("CATEGORY_") || input.equals("YES") || input.equals("NO")) {
             return handleCallback(input);
         }
 
         return handleTextInput(input.toLowerCase().trim());
     }
+
     private String showCategorySelectionForRemoval() {
         StringBuilder sb = new StringBuilder();
         sb.append("➖ Удаление категории\n\n");
@@ -144,19 +143,17 @@ public abstract class FinanceState implements DialogState {
         for (String category : categories.keySet()) {
             double amount = categories.getOrDefault(category, 0.0);
             String baseMarker = getBaseCategories().contains(category) ? " (базовая)" : "";
-            String canDelete = amount == 0 && !getBaseCategories().contains(category) ? " ✅" : " ❌";
+            String canDelete = amount == 0 && !getBaseCategories().contains(category) ? " " : "";
 
             sb.append(i).append(". ").append(category).append(baseMarker).append(canDelete)
                     .append(": ").append(String.format("%.2f", amount)).append(" руб\n");
             i++;
         }
 
-        sb.append("\n❌ - нельзя удалить (базовая или есть баланс)");
-        sb.append("\n✅ - можно удалить");
-        sb.append("\n\nМожно ввести название категории текстом");
-
         return sb.toString();
-    }    private String handleCallback(String callbackData) {
+    }
+
+    private String handleCallback(String callbackData) {
         switch (callbackData) {
             case "INCOME_ADD":
             case "EXPENSE_ADD":
@@ -189,6 +186,24 @@ public abstract class FinanceState implements DialogState {
                 currentSubState = SubState.REMOVE_CATEGORY;
                 return showCategorySelectionForRemoval();
 
+            case "YES":
+                if (tempCategoryName != null) {
+                    String result = addCategory(tempCategoryName);
+                    if (result.contains("успешно добавлена")) {
+                        selectedCategory = tempCategoryName;
+                        currentSubState = SubState.AMOUNT_INPUT;
+                        return result + "\n\nВведите сумму для добавления:";
+                    }
+                    tempCategoryName = null;
+                    return result;
+                }
+                break;
+
+            case "NO":
+                currentSubState = SubState.CATEGORY_SELECTION;
+                tempCategoryName = null;
+                return showCategorySelection();
+
             default:
                 if (callbackData.startsWith("CATEGORY_")) {
                     String[] parts = callbackData.split("_", 3);
@@ -217,57 +232,14 @@ public abstract class FinanceState implements DialogState {
                 }
                 return messageProvider.getMessage("finance.error.unknown");
         }
-    }
-
-    private String showCategoryHelp() {
-        return "Справка по управлению категориями\n\n" +
-                "Добавление категории:\n" +
-                "• Создавайте категории для группировки доходов/расходов\n" +
-                "• Название должно быть понятным (максимум 30 символов)\n" +
-                "• Новые категории начинаются с баланса 0 руб\n\n" +
-                "Удаление категории:\n" +
-                "• Удалять можно только категории с нулевым балансом\n" +
-                "• Базовые категории удалить нельзя\n" +
-                "• Перед удалением обнулите баланс\n\n" +
-                "Совет: Регулярно проверяйте категории и удаляйте неиспользуемые";
-    }
-
-    private String showAddCategoryHelp() {
-        return "Как добавить категорию:\n\n" +
-                "1. Нажмите \"Добавить категорию\"\n" +
-                "2. Введите название новой категории\n" +
-                "3. Категория будет создана с балансом 0 руб\n\n" +
-                "Примеры хороших названий:\n" +
-                "• Для доходов: Фриланс, Дивиденды, Сдача в аренду\n" +
-                "• Для расходов: Развлечения, Образование, Красота\n\n" +
-                "Чего избегать:\n" +
-                "• Слишком общих названий (Другое, Прочее)\n" +
-                "• Длинных названий (более 30 символов)\n" +
-                "• Дублирования существующих категорий";
-    }
-
-    private String showRemoveCategoryHelp() {
-        return "Как удалить категорию:\n\n" +
-                "Предварительные шаги:\n" +
-                "1. Убедитесь, что баланс категории равен 0 руб\n" +
-                "2. Для обнуления баланса перейдите в меню \"" + getTypeName() + "\" → \"Удалить\"\n" +
-                "3. Удалите всю сумму из категории\n\n" +
-                "Удаление категории:\n" +
-                "1. Нажмите \"Удалить категорию\"\n" +
-                "2. Введите название категории\n" +
-                "3. Если баланс = 0, категория будет удалена\n\n" +
-                "Почему нельзя удалить категорию с балансом:\n" +
-                "• Это исказит статистику\n" +
-                "• Нельзя будет восстановить данные\n" +
-                "• Нарушится целостность учета\n\n" +
-                "Альтернатива: Можно просто не использовать категорию вместо удаления";
+        return getCurrentStateMessage();
     }
 
     private String handleTextInput(String input) {
-        if (currentSubState == SubState.ADD_CATEGORY) {//состояние добавления категории
+        if (currentSubState == SubState.ADD_CATEGORY) {
             return addCategory(input);
         }
-        if (currentSubState == SubState.REMOVE_CATEGORY) { // состояние удаления категории
+        if (currentSubState == SubState.REMOVE_CATEGORY) {
             return removeCategory(input);
         }
         if (currentSubState == SubState.AMOUNT_INPUT && selectedCategory != null && currentOperation != null) {
@@ -284,11 +256,11 @@ public abstract class FinanceState implements DialogState {
                         operationType, selectedCategory
                 );
             } else {
+                tempCategoryName = categoryName;
                 return "Категория \"" + categoryName + "\" не найдена.\n" +
-                        "Хотите создать новую категорию?\n" +
+                        "Хотите создать новую категорию?\n\n" +
                         "1. Да - создать категорию \"" + categoryName + "\"\n" +
-                        "2. Нет - вернуться к выбору категории\n\n" +
-                        showCategorySelection();
+                        "2. Нет - вернуться к выбору категории";
             }
         }
         switch (input) {
@@ -318,9 +290,13 @@ public abstract class FinanceState implements DialogState {
                 return onEnter();
             case "да":
             case "yes":
-
-                if (tempCategoryName != null && !tempCategoryName.isEmpty()) {// создание новой категории(спасите дядя) из состояния CATEGORY_SELECTION
+                if (tempCategoryName != null && !tempCategoryName.isEmpty()) {
                     String result = addCategory(tempCategoryName);
+                    if (result.contains("успешно добавлена")) {
+                        selectedCategory = tempCategoryName;
+                        currentSubState = SubState.AMOUNT_INPUT;
+                        return result + "\n\nВведите сумму для добавления:";
+                    }
                     tempCategoryName = null;
                     return result;
                 }
@@ -328,13 +304,12 @@ public abstract class FinanceState implements DialogState {
 
             case "нет":
             case "no":
-                currentSubState = SubState.CATEGORY_SELECTION;// выбор категории
+                currentSubState = SubState.CATEGORY_SELECTION;
                 tempCategoryName = null;
                 return showCategorySelection();
 
             default:
-
-                if (categories.containsKey(input)) {// проверка на адекватность,если категорию назвали кнопкой из меню
+                if (categories.containsKey(input)) {
                     currentOperation = "add";
                     currentSubState = SubState.CATEGORY_SELECTION;
                     selectedCategory = input;
@@ -356,10 +331,7 @@ public abstract class FinanceState implements DialogState {
         String operationType = "add".equals(currentOperation) ? "добавления" : "удаления";
         String typeName = getTypeName();
 
-        sb.append(" ").append(operationType.substring(0, 1).toUpperCase())
-                .append(operationType.substring(1)).append(" ").append(typeName).append("\n\n");
-
-        sb.append("Выберите категорию:\n\n");
+        sb.append("Выберите категорию ").append(typeName).append(":\n\n");
 
         int i = 1;
         for (String category : categories.keySet()) {
@@ -369,22 +341,11 @@ public abstract class FinanceState implements DialogState {
             i++;
         }
 
-        sb.append("\n Введите название новой категории текстом");
-
         if ("remove".equals(currentOperation)) {
-            sb.append("\n Можно удалить только доступную сумму из категории");
+            sb.append("\nМожно удалить только доступную сумму из категории");
         }
 
         return sb.toString();
-    }
-    private String showCategoryList() {
-        StringBuilder list = new StringBuilder();
-        int i = 1;
-        for (String category : categories.keySet()) {
-            list.append(i).append(". ").append(category).append("\n");
-            i++;
-        }
-        return list.toString();
     }
 
     private String handleBackButton() {
@@ -399,9 +360,10 @@ public abstract class FinanceState implements DialogState {
                 return onEnter();
 
             case AMOUNT_INPUT:
-                currentSubState = SubState.CATEGORY_SELECTION;
+                currentSubState = SubState.MAIN_MENU;
+                currentOperation = null;
                 selectedCategory = null;
-                return showCategorySelection();
+                return onEnter();
 
             case CATEGORY_SELECTION:
                 currentSubState = SubState.MAIN_MENU;
@@ -446,14 +408,7 @@ public abstract class FinanceState implements DialogState {
         sb.append("• Добавить новые категории\n");
         sb.append("• Удалить ненужные категории\n");
         sb.append("• Просмотреть список всех категорий\n\n");
-        sb.append("\nВАЖНЫЕ ПРАВИЛА:\n");
-        sb.append("1. НЕЛЬЗЯ удалить категорию с деньгами(помечены ⚠️ )\n");
-        sb.append("2. НЕЛЬЗЯ удалить базовые категории\n");
-        sb.append("3. МОЖНО удалить только пустые пользовательские категории\n\n");
-        sb.append("Как удалить категорию:\n");
-        sb.append("1. Перейдите в меню \"").append(getTypeName()).append("\" → \"Удалить\"\n");
-        sb.append("2. Удалите ВСЮ сумму из категории\n");
-        sb.append("3. Вернитесь сюда и удалите пустую категорию\n\n");
+
         sb.append("Текущие категории:\n");
 
         int i = 1;
@@ -462,7 +417,7 @@ public abstract class FinanceState implements DialogState {
         for (String category : categories.keySet()) {
             double amount = categories.getOrDefault(category, 0.0);
             String baseMarker = getBaseCategories().contains(category) ? " (базовая)" : "";
-            String balanceMarker = amount > 0 ? " ⚠️" : "";
+            String balanceMarker = amount > 0 ? " " : "";
 
             if (amount > 0 && !getBaseCategories().contains(category)) {
                 hasNonZeroCategories = true;
@@ -474,13 +429,14 @@ public abstract class FinanceState implements DialogState {
         }
 
         if (hasNonZeroCategories) {
-            sb.append("\n⚠️ Категории с пометкой ⚠️ имеют ненулевой баланс.\n");
+            sb.append("\nКатегории с пометкой  имеют ненулевой баланс.\n");
             sb.append("Перед удалением необходимо обнулить баланс через меню \"")
                     .append(getTypeName()).append("\" → \"Удалить\"");
         }
 
         return sb.toString();
     }
+
     private String showCategorySelection() {
         StringBuilder categoriesMessage = new StringBuilder();
         String operationType = getTypeName().equals("доходов") ? "доходов" : "расходов";
@@ -523,12 +479,8 @@ public abstract class FinanceState implements DialogState {
         currentSubState = SubState.CATEGORY_MANAGEMENT;
 
         return MessageFormat.format(
-                "Категория \"{0}\" успешно добавлена!\n\n" +
-                        "Теперь вы можете:\n" +
-                        "• Добавлять {1} в эту категорию\n" +
-                        "• Просматривать статистику по этой категории\n" +
-                        "• Удалить категорию (если баланс равен 0)\n\n",
-                trimmedName, getTypeName()
+                "Категория \"{0}\" успешно добавлена!\n\n",
+                trimmedName
         ) + showCategoryManagement();
     }
 
@@ -615,19 +567,12 @@ public abstract class FinanceState implements DialogState {
                 double newBalance = current - amount;
                 categories.put(selectedCategory, newBalance);
 
-                String categoryManagementHint = "";
-                if (newBalance == 0 && !getBaseCategories().contains(selectedCategory)) {
-                    categoryManagementHint = "\n\nТеперь категория \"" + selectedCategory +
-                            "\" имеет нулевой баланс и может быть удалена в меню \"Управление категориями\"";
-                }
-
                 result = MessageFormat.format(
                         "Удалено {0} руб из категории \"{1}\"\n" +
-                                "Новый баланс: {2} руб{3}",
+                                "Новый баланс: {2} руб",
                         String.format("%.2f", amount),
                         selectedCategory,
-                        String.format("%.2f", newBalance),
-                        categoryManagementHint
+                        String.format("%.2f", newBalance)
                 );
             }
         }
@@ -646,7 +591,7 @@ public abstract class FinanceState implements DialogState {
 
         stats.append("Статистика ").append(getTypeName()).append("\n\n");
 
-        List<Map.Entry<String, Double>> nonZeroEntries = new ArrayList<>();// Собираем и сортируем ненулевые категории
+        List<Map.Entry<String, Double>> nonZeroEntries = new ArrayList<>();
         double total = 0;
 
         for (Map.Entry<String, Double> entry : categories.entrySet()) {
@@ -656,9 +601,7 @@ public abstract class FinanceState implements DialogState {
             }
         }
 
-
         nonZeroEntries.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
-
 
         for (Map.Entry<String, Double> entry : nonZeroEntries) {
             double percentage = total > 0 ? (entry.getValue() / total) * 100 : 100;
@@ -672,32 +615,14 @@ public abstract class FinanceState implements DialogState {
         return stats.toString();
     }
 
-    public String getChartPath() {
-        try {
-            Map<String, Double> chartData = new HashMap<>();
-            for (Map.Entry<String, Double> entry : categories.entrySet()) {
-                if (entry.getValue() > 0) {
-                    chartData.put(entry.getKey(), entry.getValue());
-                }
+    public Map<String, Double> getChartData() {
+        Map<String, Double> chartData = new HashMap<>();
+        for (Map.Entry<String, Double> entry : categories.entrySet()) {
+            if (entry.getValue() > 0) {
+                chartData.put(entry.getKey(), entry.getValue());
             }
-
-            if (chartData.isEmpty()) {
-                return null;
-            }
-
-            String title = getTypeName().equals("доходов") ?
-                    "Диаграмма доходов" : "Диаграмма расходов";
-
-            String chartPath = ChartGenerator.generatePieChart(chartData, title, userId);
-
-            ChartGenerator.cleanupOldCharts(userId);
-
-            return chartPath;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
         }
+        return chartData;
     }
 
     private void resetOperation() {

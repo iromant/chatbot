@@ -15,6 +15,10 @@ public class DialogManager {
         this.messageProvider = messageProvider;
     }
 
+    public UserSessionManager getSessionManager() {
+        return sessionManager;
+    }
+
     public String processUserInput(Long userId, String userInput) {
         try {
             UserSession userSession = sessionManager.getOrCreateSession(userId);
@@ -60,9 +64,7 @@ public class DialogManager {
                         new DialogContext(userSession, "статистика")
                 );
 
-                String chartPath = financeState.getChartPath();
-
-                return new ChartResponse(stats, chartPath);
+                return new ChartResponse(stats, null);
             }
 
             return new ChartResponse("Эта команда доступна только в режиме доходов/расходов", null);
@@ -75,23 +77,13 @@ public class DialogManager {
 
     public static class ChartResponse {
         private final String statistics;
-        private final String chartPath;
 
         public ChartResponse(String statistics, String chartPath) {
             this.statistics = statistics;
-            this.chartPath = chartPath;
         }
 
         public String getStatistics() {
             return statistics;
-        }
-
-        public String getChartPath() {
-            return chartPath;
-        }
-
-        public boolean hasChart() {
-            return chartPath != null;
         }
     }
 }

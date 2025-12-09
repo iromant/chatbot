@@ -6,14 +6,12 @@ public class ConsoleApp {
     private final ConsoleInput input;
     private final ConsoleOutput output;
     private final DialogManager dialogManager;
-    private final AggregatorMessage messageProvider;
     private boolean isRunning;
 
     public ConsoleApp() {
         this.input = new ConsoleInput();
         this.output = new ConsoleOutput();
-        this.messageProvider = new AggregatorMessage();
-        this.dialogManager = new DialogManager(new UserSessionManager(), messageProvider);
+        this.dialogManager = new DialogManager(new UserSessionManager());
         this.isRunning = false;
     }
 

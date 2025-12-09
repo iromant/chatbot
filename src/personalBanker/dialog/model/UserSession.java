@@ -49,4 +49,8 @@ public class UserSession {
             stateInstances.putIfAbsent(newState.getClass(), newState);
         }
     }
+
+    public Long getUserId() {
+        return userId;
+    }
 }

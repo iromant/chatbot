@@ -1,7 +1,6 @@
 package personalBanker.dialog.states;
 
 import personalBanker.dialog.model.DialogContext;
-import personalBanker.messageprovider.AggregatorMessage;
 
 import java.util.Optional;
 import java.util.Map;
@@ -36,20 +35,32 @@ public class UniversalCommand {
             case "доходы":
             case "доход":
             case "income_menu":
-                context.setNextState(context.getUserSession().getOrCreateState(IncomeState.class));
+                Long userId = context.getUserSession().getUserId();
+                context.setNextState(new IncomeState(userId));
                 return Optional.of("");
 
             case "расходы":
             case "расход":
             case "expense_menu":
-                context.setNextState(context.getUserSession().getOrCreateState(ExpenseState.class));
+                userId = context.getUserSession().getUserId();
+                context.setNextState(new ExpenseState(userId));
                 return Optional.of("");
 
+            case "период":
+            case "периоды":
+            case "period_menu":
+            case "настройка периодов":
+                userId = context.getUserSession().getUserId();
+                context.setNextState(new PeriodState(userId));
+                return Optional.of("");
+
+                //интересная кнопка, я в шоке
             case "мои данные":
             case "/mydata":
                 try {
-                    if (context.getUserSession().getCurrentState() instanceof FinanceState) {
-                        FinanceState financeState = (FinanceState) context.getUserSession().getCurrentState();
+                    DialogState currentState = context.getUserSession().getCurrentState();
+                    if (currentState instanceof FinanceState) {
+                        FinanceState financeState = (FinanceState) currentState;
                         StringBuilder sb = new StringBuilder();
                         sb.append("Ваши категории:\n\n");
 
@@ -64,15 +75,8 @@ public class UniversalCommand {
                 } catch (Exception e) {
                     return Optional.of("Не удалось получить данные");
                 }
-                return Optional.of("Не в режиме доходов/расходов");
+                return Optional.of("Вы не в режиме доходов/расходов");
 
-            case "/delete_my_data":
-            case "удалить мои данные":
-                return Optional.of("Для удаления данных используйте команду напрямую");
-            case "очистить данные":
-            case "удалить данные":
-            case "clear_data":
-                return Optional.of("Для удаления всех данных нажмите кнопку 'Удалить данные' в главном меню.");
             default:
                 return Optional.empty();
         }

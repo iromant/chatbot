@@ -11,20 +11,7 @@ public class UserSessionManager {
         return sessions.computeIfAbsent(userId, UserSession::new);
     }
 
-    public UserSession getSession(Long userId) {
-        return sessions.get(userId);
-    }
-
     public void clearUserSession(Long userId) {
-        UserSession session = sessions.remove(userId);
-        if (session != null) {
-            System.out.println("Сессия пользователя " + userId + " очищена");
-        }
-    }
-
-    public void clearAllSessions() {
-        int count = sessions.size();
-        sessions.clear();
-        System.out.println("Очищены все сессии: " + count + " пользователей");
+        sessions.remove(userId);
     }
 }

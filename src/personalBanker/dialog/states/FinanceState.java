@@ -2,7 +2,6 @@ package personalBanker.dialog.states;
 
 import personalBanker.dialog.model.DialogContext;
 import personalBanker.messageprovider.AggregatorMessage;
-import personalBanker.dialog.chart.ChartGenerator;
 import personalBanker.dialog.storage.UserCategoryStorage;
 
 import java.util.*;
@@ -11,6 +10,7 @@ import java.text.MessageFormat;
 public abstract class FinanceState implements DialogState {
     protected final AggregatorMessage messageProvider;
     protected final Map<String, Double> categories;
+    protected final Map<String, Double> limitsGoals;
     protected String currentOperation;
     protected String selectedCategory;
     protected final Long userId;
@@ -21,22 +21,27 @@ public abstract class FinanceState implements DialogState {
         AMOUNT_INPUT,
         CATEGORY_MANAGEMENT,
         ADD_CATEGORY,
-        REMOVE_CATEGORY
+        REMOVE_CATEGORY,
+        SET_LIMIT_GOAL,
+        CONFIRM_LIMIT_GOAL
     }
 
     protected SubState currentSubState;
     protected String tempCategoryName;
+    protected Double tempAmount;
 
     public FinanceState(Long userId) {
         this.messageProvider = new AggregatorMessage();
         this.categories = new LinkedHashMap<>();
+        this.limitsGoals = new HashMap<>();
         this.currentOperation = null;
         this.selectedCategory = null;
         this.currentSubState = SubState.MAIN_MENU;
         this.userId = userId;
         this.tempCategoryName = null;
+        this.tempAmount = null;
         initializeCategories();
-        loadUserCategories();
+        loadUserData();
     }
 
     protected abstract void initializeCategories();
@@ -44,34 +49,7 @@ public abstract class FinanceState implements DialogState {
     public abstract String getTypeName();
     public abstract Set<String> getBaseCategories();
     public abstract Map<String, Double> getCategoriesMap();
-
-    protected void loadUserCategories() {
-        Map<String, Double> userCategories = UserCategoryStorage.loadUserCategories(
-                userId,
-                getTypeName().equals("доходов") ? "income" : "expense"
-        );
-
-        for (Map.Entry<String, Double> entry : userCategories.entrySet()) {
-            categories.put(entry.getKey(), entry.getValue());
-        }
-    }
-
-    protected void saveUserCategories() {
-        Map<String, Double> userCategories = new HashMap<>();
-        Set<String> baseCategories = getBaseCategories();
-
-        for (Map.Entry<String, Double> entry : categories.entrySet()) {
-            if (!baseCategories.contains(entry.getKey())) {
-                userCategories.put(entry.getKey(), entry.getValue());
-            }
-        }
-
-        UserCategoryStorage.saveUserCategories(
-                userId,
-                getTypeName().equals("доходов") ? "income" : "expense",
-                userCategories
-        );
-    }
+    public abstract boolean isIncome();
 
     @Override
     public String onEnter() {
@@ -103,8 +81,13 @@ public abstract class FinanceState implements DialogState {
             return showCategorySelectionForRemoval();
         }
 
-        if ((input.equalsIgnoreCase("назад") || input.equals("BACK")) &&
-                currentSubState != SubState.MAIN_MENU) {
+        if (input.equals("GOALS") || input.equals("SET_LIMIT_GOAL")) {
+            currentSubState = SubState.SET_LIMIT_GOAL;
+            return showCategorySelectionForLimitsGoals();
+        }
+
+        // Обработка кнопки назад ВСЕГДА (без условий)
+        if (input.equalsIgnoreCase("назад") || input.equals("BACK")) {
             return handleBackButton();
         }
 
@@ -127,7 +110,8 @@ public abstract class FinanceState implements DialogState {
 
     private String handleFinancialInput(String input) {
         if (input.startsWith("INCOME_") || input.startsWith("EXPENSE_")
-                || input.startsWith("CATEGORY_") || input.equals("YES") || input.equals("NO")) {
+                || input.startsWith("CATEGORY_") || input.equals("YES") || input.equals("NO")
+                || input.startsWith("SET_LIMIT_FOR_")) {
             return handleCallback(input);
         }
 
@@ -176,11 +160,14 @@ public abstract class FinanceState implements DialogState {
                 currentSubState = SubState.CATEGORY_MANAGEMENT;
                 return showCategoryManagement();
 
+            case "GOALS":
+            case "SET_LIMIT_GOAL":
+                currentSubState = SubState.SET_LIMIT_GOAL;
+                return showCategorySelectionForLimitsGoals();
+
             case "ADD_CATEGORY":
                 currentSubState = SubState.ADD_CATEGORY;
-                return "➕ Добавление новой категории\n\n" +
-                        "Введите название новой категории:\n\n" +
-                        "Новые категории начинаются с баланса 0 руб";
+                return messageProvider.getMessage("finance.add.category");
 
             case "REMOVE_CATEGORY":
                 currentSubState = SubState.REMOVE_CATEGORY;
@@ -202,10 +189,17 @@ public abstract class FinanceState implements DialogState {
             case "NO":
                 currentSubState = SubState.CATEGORY_SELECTION;
                 tempCategoryName = null;
-                return showCategorySelection();
+                return showCategorySelectionWithInstructions();
 
             default:
-                if (callbackData.startsWith("CATEGORY_")) {
+                if (callbackData.startsWith("SET_LIMIT_FOR_")) {
+                    String categoryName = callbackData.substring("SET_LIMIT_FOR_".length());
+                    if (categories.containsKey(categoryName)) {
+                        selectedCategory = categoryName;
+                        currentSubState = SubState.CONFIRM_LIMIT_GOAL;
+                        return getLimitGoalInputMessage(categoryName);
+                    }
+                } else if (callbackData.startsWith("CATEGORY_")) {
                     String[] parts = callbackData.split("_", 3);
                     if (parts.length >= 3) {
                         String categoryName = parts[2];
@@ -217,16 +211,23 @@ public abstract class FinanceState implements DialogState {
                             currentSubState = SubState.AMOUNT_INPUT;
                             String operationType = "add".equals(currentOperation) ? "добавления" : "удаления";
                             double currentBalance = categories.getOrDefault(selectedCategory, 0.0);
+                            Double limitGoal = limitsGoals.get(selectedCategory);
+
+                            String limitGoalText = "";
+                            if (limitGoal != null) {
+                                limitGoalText = MessageFormat.format(
+                                        "\n{0}: {1} руб",
+                                        isIncome() ? "Цель" : "Лимит",
+                                        String.format("%.2f", limitGoal)
+                                );
+                            }
 
                             return MessageFormat.format(
-                                    "Ввод суммы\n\n" +
-                                            "Категория: \"{0}\"\n" +
-                                            "Текущий баланс: {1} руб\n\n" +
-                                            "Введите сумму для {2}:",
+                                    messageProvider.getMessage("finance.input.amount"),
                                     selectedCategory,
                                     String.format("%.2f", currentBalance),
-                                    operationType
-                            );
+                                    limitGoalText,
+                                    operationType);
                         }
                     }
                 }
@@ -245,6 +246,18 @@ public abstract class FinanceState implements DialogState {
         if (currentSubState == SubState.AMOUNT_INPUT && selectedCategory != null && currentOperation != null) {
             return processAmount(input);
         }
+        if (currentSubState == SubState.CONFIRM_LIMIT_GOAL && selectedCategory != null) {
+            return processLimitGoalInput(input);
+        }
+        if (currentSubState == SubState.SET_LIMIT_GOAL) {
+            selectedCategory = input.trim();
+            if (categories.containsKey(selectedCategory)) {
+                currentSubState = SubState.CONFIRM_LIMIT_GOAL;
+                return getLimitGoalInputMessage(selectedCategory);
+            } else {
+                return "Категория \"" + selectedCategory + "\" не найдена. Попробуйте еще раз.";
+            }
+        }
         if (currentSubState == SubState.CATEGORY_SELECTION) {
             String categoryName = input.trim();
             if (categories.containsKey(categoryName)) {
@@ -257,10 +270,9 @@ public abstract class FinanceState implements DialogState {
                 );
             } else {
                 tempCategoryName = categoryName;
-                return "Категория \"" + categoryName + "\" не найдена.\n" +
-                        "Хотите создать новую категорию?\n\n" +
-                        "1. Да - создать категорию \"" + categoryName + "\"\n" +
-                        "2. Нет - вернуться к выбору категории";
+                return MessageFormat.format(
+                        messageProvider.getMessage("finance.category.not.found"),
+                        categoryName);
             }
         }
         switch (input) {
@@ -306,7 +318,13 @@ public abstract class FinanceState implements DialogState {
             case "no":
                 currentSubState = SubState.CATEGORY_SELECTION;
                 tempCategoryName = null;
-                return showCategorySelection();
+                return showCategorySelectionWithInstructions();
+
+            case "лимиты":
+            case "цели":
+            case "goals":
+                currentSubState = SubState.SET_LIMIT_GOAL;
+                return showCategorySelectionForLimitsGoals();
 
             default:
                 if (categories.containsKey(input)) {
@@ -320,29 +338,130 @@ public abstract class FinanceState implements DialogState {
                     );
                 }
 
-                return messageProvider.getMessage("finance.error.unknown") + "\n\n" + getCurrentStateMessage();
+                return messageProvider.getMessage("finance.error.unknown");
         }
 
         return getCurrentStateMessage();
     }
 
-    private String showCategorySelectionWithInstructions() {
-        StringBuilder sb = new StringBuilder();
-        String operationType = "add".equals(currentOperation) ? "добавления" : "удаления";
-        String typeName = getTypeName();
+    private String getLimitGoalInputMessage(String categoryName) {
+        String type = isIncome() ? "цель" : "лимит";
+        Double currentLimitGoal = limitsGoals.get(categoryName);
+        double currentAmount = categories.getOrDefault(categoryName, 0.0);
 
-        sb.append("Выберите категорию ").append(typeName).append(":\n\n");
+
+        return MessageFormat.format(
+                messageProvider.getMessage("finance.limit.goal.no"),
+                type,
+                categoryName);
+
+    }
+
+    private String processLimitGoalInput(String input) {
+        if (input.trim().isEmpty()) {
+            currentSubState = SubState.CATEGORY_MANAGEMENT;
+            return "Отмена установки\n\n" + showCategoryManagement();
+        }
+
+        try {
+            double amount = Double.parseDouble(input);
+
+            if (amount < 0) {
+                return "Сумма не может быть отрицательной. Попробуйте еще раз.";
+            }
+
+            String type = isIncome() ? "цель" : "лимит";
+
+            if (amount == 0) {
+                limitsGoals.remove(selectedCategory);
+                saveUserData();
+                currentSubState = SubState.CATEGORY_MANAGEMENT;
+
+                return MessageFormat.format(
+                        "✅ {0} для категории \"{1}\" удален\n\n",
+                        type, selectedCategory
+                ) + showCategoryManagement();
+            } else {
+                limitsGoals.put(selectedCategory, amount);
+                saveUserData();
+                currentSubState = SubState.CATEGORY_MANAGEMENT;
+
+                double currentAmount = categories.getOrDefault(selectedCategory, 0.0);
+                StringBuilder result = new StringBuilder();
+
+                result.append(MessageFormat.format(
+                        "✅ {0} для категории \"{1}\" есть: {2} руб\n\n",
+                        type, selectedCategory, String.format("%.2f", amount)));
+
+                if (isIncome()) {
+                    if (currentAmount >= amount) {
+                        result.append("🎉 ПОЗДРАВЛЯЕМ! ЦЕЛЬ ДОСТИГНУТА!\n");
+                    } else {
+                        double remaining = amount - currentAmount;
+                        double percentage = (currentAmount / amount) * 100;
+                        result.append(MessageFormat.format(
+                                "📊 Прогресс: {0}% ({1} руб / {2} руб)\n" +
+                                        "Осталось до цели: {3} руб\n",
+                                String.format("%.1f", percentage),
+                                String.format("%.2f", currentAmount),
+                                String.format("%.2f", amount),
+                                String.format("%.2f", remaining)));
+                    }
+                } else {
+                    if (currentAmount > amount) {
+                        double overspend = currentAmount - amount;
+                        result.append(MessageFormat.format(
+                                "⚠️ ВНИМАНИЕ! ЛИМИТ ПРЕВЫШЕН НА {0} РУБ!\n",
+                                String.format("%.2f", overspend)));
+                    } else {
+                        double remaining = amount - currentAmount;
+                        double percentage = (currentAmount / amount) * 100;
+                        result.append(MessageFormat.format(
+                                "📊 Использовано: {0}% ({1} руб / {2} руб)\n" +
+                                        "Осталось в лимите: {3} руб\n",
+                                String.format("%.1f", percentage),
+                                String.format("%.2f", currentAmount),
+                                String.format("%.2f", amount),
+                                String.format("%.2f", remaining)));
+                    }
+                }
+
+                return result + showCategoryManagement();
+            }
+        } catch (NumberFormatException e) {
+            return "Неверный формат суммы. Попробуйте еще раз.";
+        }
+    }
+
+    private String showCategorySelectionForLimitsGoals() {
+        StringBuilder sb = new StringBuilder();
+        String type = isIncome() ? "целей" : "лимитов";
+
+        sb.append("🎯 Установка ").append(type).append("\n\n");
+        sb.append("Выберите категорию:\n\n");
 
         int i = 1;
         for (String category : categories.keySet()) {
             double amount = categories.getOrDefault(category, 0.0);
-            sb.append(i).append(". ").append(category)
-                    .append(": ").append(String.format("%.2f", amount)).append(" руб\n");
-            i++;
-        }
+            Double limitGoal = limitsGoals.get(category);
+            String limitGoalText = limitGoal != null ?
+                    String.format("%.2f", limitGoal) + " руб" : "не установлен";
 
-        if ("remove".equals(currentOperation)) {
-            sb.append("\nМожно удалить только доступную сумму из категории");
+            String emoji = "";
+            if (limitGoal != null) {
+                if (isIncome()) {
+                    if (amount >= limitGoal) emoji = " 🎯";
+                    else if (amount > 0 && (amount / limitGoal) >= 0.8) emoji = " ⏳";
+                } else {
+                    if (amount > limitGoal) emoji = " ⚠️";
+                    else if (amount > 0 && (amount / limitGoal) >= 0.8) emoji = " ⚡";
+                }
+            }
+
+            sb.append(i).append(". ").append(category)
+                    .append(": ").append(String.format("%.2f", amount))
+                    .append(" руб / ").append(limitGoalText).append(emoji).append("\n");
+            i++;
         }
 
         return sb.toString();
@@ -352,6 +471,8 @@ public abstract class FinanceState implements DialogState {
         switch (currentSubState) {
             case ADD_CATEGORY:
             case REMOVE_CATEGORY:
+            case SET_LIMIT_GOAL:
+            case CONFIRM_LIMIT_GOAL:
                 currentSubState = SubState.CATEGORY_MANAGEMENT;
                 return showCategoryManagement();
 
@@ -360,10 +481,9 @@ public abstract class FinanceState implements DialogState {
                 return onEnter();
 
             case AMOUNT_INPUT:
-                currentSubState = SubState.MAIN_MENU;
-                currentOperation = null;
+                currentSubState = SubState.CATEGORY_SELECTION;
                 selectedCategory = null;
-                return onEnter();
+                return showCategorySelectionWithInstructions();
 
             case CATEGORY_SELECTION:
                 currentSubState = SubState.MAIN_MENU;
@@ -372,6 +492,8 @@ public abstract class FinanceState implements DialogState {
                 return onEnter();
 
             case MAIN_MENU:
+                return onEnter();
+
             default:
                 return onEnter();
         }
@@ -394,7 +516,11 @@ public abstract class FinanceState implements DialogState {
             case ADD_CATEGORY:
                 return "Введите название новой категории:";
             case REMOVE_CATEGORY:
-                return showCategorySelection() + "\n\nВведите название категории для удаления:";
+                return showCategorySelectionForRemoval();
+            case SET_LIMIT_GOAL:
+                return showCategorySelectionForLimitsGoals();
+            case CONFIRM_LIMIT_GOAL:
+                return getLimitGoalInputMessage(selectedCategory);
             default:
                 return onEnter();
         }
@@ -404,28 +530,51 @@ public abstract class FinanceState implements DialogState {
         StringBuilder sb = new StringBuilder();
         sb.append("Управление категориями ").append(getTypeName()).append("\n\n");
 
-        sb.append("Здесь вы можете:\n");
-        sb.append("• Добавить новые категории\n");
-        sb.append("• Удалить ненужные категории\n");
-        sb.append("• Просмотреть список всех категорий\n\n");
-
-        sb.append("Текущие категории:\n");
+        sb.append(messageProvider.getMessage("finance.categories.management"));
 
         int i = 1;
         boolean hasNonZeroCategories = false;
 
         for (String category : categories.keySet()) {
             double amount = categories.getOrDefault(category, 0.0);
+            Double limitGoal = limitsGoals.get(category);
+
             String baseMarker = getBaseCategories().contains(category) ? " (базовая)" : "";
             String balanceMarker = amount > 0 ? " " : "";
+
+            sb.append(i).append(". ").append(category).append(baseMarker).append(balanceMarker)
+                    .append(": ").append(String.format("%.2f", amount));
+
+            if (limitGoal != null) {
+                sb.append(" / ").append(String.format("%.2f", limitGoal)).append(" руб");
+
+                if (isIncome()) {
+                    if (amount >= limitGoal) {
+                        sb.append(" 🎯");
+                    } else if (amount > 0) {
+                        double percentage = (amount / limitGoal) * 100;
+                        if (percentage >= 80) {
+                            sb.append(" ⏳");
+                        }
+                    }
+                } else {
+                    if (amount > limitGoal) {
+                        sb.append(" ⚠️");
+                    } else if (amount > 0) {
+                        double percentage = (amount / limitGoal) * 100;
+                        if (percentage >= 80) {
+                            sb.append(" ⚡");
+                        }
+                    }
+                }
+            }
+
+            sb.append("\n");
+            i++;
 
             if (amount > 0 && !getBaseCategories().contains(category)) {
                 hasNonZeroCategories = true;
             }
-
-            sb.append(i).append(". ").append(category).append(baseMarker).append(balanceMarker)
-                    .append(": ").append(String.format("%.2f", amount)).append(" руб\n");
-            i++;
         }
 
         if (hasNonZeroCategories) {
@@ -437,21 +586,47 @@ public abstract class FinanceState implements DialogState {
         return sb.toString();
     }
 
-    private String showCategorySelection() {
-        StringBuilder categoriesMessage = new StringBuilder();
-        String operationType = getTypeName().equals("доходов") ? "доходов" : "расходов";
+    private String showCategorySelectionWithInstructions() {
+        StringBuilder sb = new StringBuilder();
+        String typeName = getTypeName();
 
-        categoriesMessage.append("Доступные категории ").append(operationType).append(":\n\n");
+        sb.append("Выберите категорию ").append(typeName).append(":\n\n");
 
         int i = 1;
         for (String category : categories.keySet()) {
             double amount = categories.getOrDefault(category, 0.0);
-            categoriesMessage.append(i).append(". ").append(category)
-                    .append(": ").append(String.format("%.2f", amount)).append(" руб\n");
+            Double limitGoal = limitsGoals.get(category);
+
+            sb.append(i).append(". ").append(category)
+                    .append(": ").append(String.format("%.2f", amount));
+
+            if (limitGoal != null) {
+                sb.append(" / ").append(String.format("%.2f", limitGoal)).append(" руб");
+
+                if (isIncome()) {
+                    if (amount >= limitGoal) {
+                        sb.append(" 🎯");
+                    } else if (amount > 0 && (amount / limitGoal) >= 0.8) {
+                        sb.append(" ⏳");
+                    }
+                } else {
+                    if (amount > limitGoal) {
+                        sb.append(" ⚠️");
+                    } else if (amount > 0 && (amount / limitGoal) >= 0.8) {
+                        sb.append(" ⚡");
+                    }
+                }
+            }
+
+            sb.append("\n");
             i++;
         }
 
-        return categoriesMessage.toString();
+        if ("remove".equals(currentOperation)) {
+            sb.append("\nМожно удалить только доступную сумму из категории");
+        }
+
+        return sb.toString();
     }
 
     private String addCategory(String categoryName) {
@@ -474,7 +649,7 @@ public abstract class FinanceState implements DialogState {
         }
 
         categories.put(trimmedName, 0.0);
-        saveUserCategories();
+        saveUserData();
 
         currentSubState = SubState.CATEGORY_MANAGEMENT;
 
@@ -517,8 +692,9 @@ public abstract class FinanceState implements DialogState {
             );
         }
 
+        limitsGoals.remove(trimmedName);
         categories.remove(trimmedName);
-        saveUserCategories();
+        saveUserData();
 
         currentSubState = SubState.CATEGORY_MANAGEMENT;
 
@@ -540,46 +716,105 @@ public abstract class FinanceState implements DialogState {
         }
     }
 
-    private String executeFinancialOperation(double amount) {
-        String result;
+    public String executeFinancialOperation(double amount) {
+        String result = "";
         double current = categories.getOrDefault(selectedCategory, 0.0);
 
         if ("add".equals(currentOperation)) {
             categories.put(selectedCategory, current + amount);
             result = MessageFormat.format(
-                    "Добавлено {0} руб в категорию \"{1}\"\n" +
+                    "✅ Добавлено {0} руб в категорию \"{1}\"\n" +
                             "Новый баланс: {2} руб",
                     String.format("%.2f", amount),
                     selectedCategory,
                     String.format("%.2f", current + amount)
             );
-        } else {
+
+            result += checkLimitGoalAfterOperation(selectedCategory, current + amount);
+
+        } else if ("remove".equals(currentOperation)) {
             if (amount > current) {
-                result = MessageFormat.format(
-                        "Недостаточно средств для удаления\n" +
-                                "Доступно для удаления: {0} руб\n" +
-                                "Текущий баланс категории \"{1}\": {2} руб",
+                return MessageFormat.format(messageProvider.getMessage("finance.insufficient.funds"),
                         String.format("%.2f", current),
                         selectedCategory,
-                        String.format("%.2f", current)
-                );
+                        String.format("%.2f", current));
             } else {
                 double newBalance = current - amount;
                 categories.put(selectedCategory, newBalance);
 
                 result = MessageFormat.format(
-                        "Удалено {0} руб из категории \"{1}\"\n" +
+                        "✅ Удалено {0} руб из категории \"{1}\"\n" +
                                 "Новый баланс: {2} руб",
                         String.format("%.2f", amount),
                         selectedCategory,
                         String.format("%.2f", newBalance)
                 );
+
+                result += checkLimitGoalAfterOperation(selectedCategory, newBalance);
             }
         }
 
-        saveUserCategories();
+        saveUserData();
         resetOperation();
         return result + "\n\n" + onEnter();
+    }
+
+    private String checkLimitGoalAfterOperation(String category, double newAmount) {
+        Double limitGoal = limitsGoals.get(category);
+        if (limitGoal == null) {
+            return "";
+        }
+
+        StringBuilder message = new StringBuilder("\n\n");
+
+        if (isIncome()) {
+            if (newAmount >= limitGoal) {
+                message.append("🎉 ПОЗДРАВЛЯЕМ! ЦЕЛЬ ДОСТИГНУТА!\n");
+                message.append("Вы собрали ").append(String.format("%.2f", newAmount))
+                        .append(" руб при цели ").append(String.format("%.2f", limitGoal))
+                        .append(" руб\n");
+            } else {
+                double percentage = (newAmount / limitGoal) * 100;
+                double remaining = limitGoal - newAmount;
+                message.append(MessageFormat.format(
+                        "📊 Прогресс цели: {0}%\n" +
+                                "Осталось до цели: {1} руб\n",
+                        String.format("%.1f", percentage),
+                        String.format("%.2f", remaining)
+                ));
+
+                if (percentage >= 80) {
+                    message.append("⚡ Вы близки к достижению цели!\n");
+                }
+            }
+        } else {
+            if (newAmount > limitGoal) {
+                double overspend = newAmount - limitGoal;
+                message.append("⚠️ ВНИМАНИЕ! ЛИМИТ ПРЕВЫШЕН!\n");
+                message.append(MessageFormat.format(
+                        "Превышение: {0} руб\n" +
+                                "Лимит: {1} руб, потрачено: {2} руб\n",
+                        String.format("%.2f", overspend),
+                        String.format("%.2f", limitGoal),
+                        String.format("%.2f", newAmount)
+                ));
+            } else {
+                double percentage = (newAmount / limitGoal) * 100;
+                double remaining = limitGoal - newAmount;
+                message.append(MessageFormat.format(
+                        "📊 Использовано лимита: {0}%\n" +
+                                "Осталось в лимите: {1} руб\n",
+                        String.format("%.1f", percentage),
+                        String.format("%.2f", remaining)
+                ));
+
+                if (percentage >= 80) {
+                    message.append("⚡ Вы близки к исчерпанию лимита!\n");
+                }
+            }
+        }
+
+        return message.toString();
     }
 
     private String showStatistics() {
@@ -605,9 +840,27 @@ public abstract class FinanceState implements DialogState {
 
         for (Map.Entry<String, Double> entry : nonZeroEntries) {
             double percentage = total > 0 ? (entry.getValue() / total) * 100 : 100;
+            Double limitGoal = limitsGoals.get(entry.getKey());
+
             stats.append("• ").append(entry.getKey())
                     .append(": ").append(String.format("%.2f", entry.getValue()))
-                    .append(" руб (").append(String.format("%.1f", percentage)).append("%)\n");
+                    .append(" руб");
+
+            if (limitGoal != null) {
+                stats.append(" / ").append(String.format("%.2f", limitGoal)).append(" руб");
+
+                if (isIncome()) {
+                    if (entry.getValue() >= limitGoal) {
+                        stats.append(" 🎯");
+                    }
+                } else {
+                    if (entry.getValue() > limitGoal) {
+                        stats.append(" ⚠️");
+                    }
+                }
+            }
+
+            stats.append(" (").append(String.format("%.1f", percentage)).append("%)\n");
         }
 
         stats.append("\nИтого: ").append(String.format("%.2f", total)).append(" руб");
@@ -625,10 +878,43 @@ public abstract class FinanceState implements DialogState {
         return chartData;
     }
 
+    protected void loadUserData() {
+        // Загружаем суммы категорий
+        Map<String, Double> loadedCategories = UserCategoryStorage.loadUserCategories(
+                userId,
+                isIncome() ? "income" : "expense"
+        );
+
+        for (Map.Entry<String, Double> entry : loadedCategories.entrySet()) {
+            categories.put(entry.getKey(), entry.getValue());
+        }
+
+        // Загружаем лимиты/цели
+        Map<String, Double> loadedLimitsGoals = UserCategoryStorage.loadLimitsGoals(
+                userId,
+                isIncome() ? "income" : "expense"
+        );
+
+        limitsGoals.putAll(loadedLimitsGoals);
+    }
+
+    protected void saveUserData() {
+        Map<String, Double> allCategories = new HashMap<>(categories);
+
+
+        UserCategoryStorage.saveUserCategoriesAndLimits(
+                userId,
+                isIncome() ? "income" : "expense",
+                allCategories,
+                limitsGoals
+        );
+    }
+
     private void resetOperation() {
         currentOperation = null;
         selectedCategory = null;
         tempCategoryName = null;
+        tempAmount = null;
         currentSubState = SubState.MAIN_MENU;
     }
 }

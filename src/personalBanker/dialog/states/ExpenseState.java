@@ -36,4 +36,9 @@ public class ExpenseState extends FinanceState {
     public Map<String, Double> getCategoriesMap() {
         return new LinkedHashMap<>(categories);
     }
+
+    @Override
+    public boolean isIncome() {
+        return false; // Это класс расходов
+    }
 }

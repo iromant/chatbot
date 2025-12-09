@@ -1,89 +1,114 @@
 package personalBanker.dialog.manager;
 
+import personalBanker.dialog.states.*;
 import personalBanker.dialog.model.*;
-import personalBanker.dialog.states.DialogState;
-import personalBanker.dialog.states.FinanceState;
 import personalBanker.messageprovider.AggregatorMessage;
+import personalBanker.dialog.storage.UserCategoryStorage;
+
+import java.util.*;
+import java.time.LocalDate;
 
 public class DialogManager {
     private final UserSessionManager sessionManager;
-    private final AggregatorMessage messageProvider;
 
-    public DialogManager(UserSessionManager sessionManager,
-                         AggregatorMessage messageProvider) {
+    public DialogManager(UserSessionManager sessionManager) {
         this.sessionManager = sessionManager;
-        this.messageProvider = messageProvider;
     }
 
-    public UserSessionManager getSessionManager() {
-        return sessionManager;
-    }
-
-    public String processUserInput(Long userId, String userInput) {
+    public String processUserInput(Long userId, String input) {
         try {
-            UserSession userSession = sessionManager.getOrCreateSession(userId);
-            DialogContext context = new DialogContext(userSession, userInput);
-            DialogState currentState = userSession.getCurrentState();
+            // Получаем сессию пользователя
+            UserSession session = sessionManager.getOrCreateSession(userId);
+            DialogState currentState = session.getCurrentState();
 
-            String response = currentState.userRequest(context);
-            DialogState nextState = currentState.goNextState(context);
+            // 1. Проверяем универсальные команды (кроме "назад" внутри состояний)
+            if (!shouldSkipUniversalCommand(currentState, input)) {
+                DialogContext universalContext = new DialogContext(session, input);
+                Optional<String> universalResult = UniversalCommand.executeCommand(input, universalContext);
 
-            if (nextState != null && nextState != currentState) {
-                userSession.newCurrentState(nextState);
-                String enterMessage = nextState.onEnter();
-                if (enterMessage != null && !enterMessage.trim().isEmpty()) {
-                    response = enterMessage;
+                if (universalResult.isPresent()) {
+                    // Если команда установила следующее состояние
+                    if (universalContext.hasNextState()) {
+                        DialogState nextState = universalContext.getNextState();
+                        session.newCurrentState(nextState);
+                        return nextState.onEnter();
+                    }
+                    // Если команда вернула текстовый ответ
+                    return universalResult.get();
                 }
+            }
+
+            // 2. Стандартная обработка текущего состояния
+            DialogContext context = new DialogContext(session, input);
+            String response = currentState.userRequest(context);
+
+            // 3. Обработка перехода состояния
+            if (context.hasNextState()) {
+                DialogState nextState = context.getNextState();
+                session.newCurrentState(nextState);
+                return nextState.onEnter();
             }
 
             return response;
 
         } catch (Exception e) {
             e.printStackTrace();
-            return messageProvider.getMessage("error.general");
+            return "Произошла ошибка при обработке команды. Пожалуйста, попробуйте еще раз.";
         }
+    }
+
+    // Проверяем, нужно ли пропускать универсальную команду
+    private boolean shouldSkipUniversalCommand(DialogState currentState, String input) {
+        if (input.equalsIgnoreCase("назад") || input.equals("BACK")) {
+            String currentSubState = currentState.getCurrentSubState();
+
+            if (currentState instanceof FinanceState) {
+                return !"MAIN_MENU".equals(currentSubState);
+            } else if (currentState instanceof PeriodState) {
+                return !"MAIN".equals(currentSubState);
+            }
+        }
+        return false;
     }
 
     public DialogState getCurrentState(Long userId) {
-        UserSession userSession = sessionManager.getOrCreateSession(userId);
-        return userSession.getCurrentState();
+        UserSession session = sessionManager.getOrCreateSession(userId);
+        DialogState state = session.getCurrentState();
+        if (state == null) {
+            state = new StartState();
+            session.newCurrentState(state);
+        }
+        return state;
     }
 
     public String getCurrentSubState(Long userId) {
-        return getCurrentState(userId).getCurrentSubState();
+        DialogState state = getCurrentState(userId);
+        return state.getCurrentSubState();
     }
 
-    public ChartResponse processStatistics(Long userId) {
-        try {
-            UserSession userSession = sessionManager.getOrCreateSession(userId);
-            DialogState currentState = userSession.getCurrentState();
-
-            if (currentState instanceof FinanceState) {
-                FinanceState financeState = (FinanceState) currentState;
-                String stats = financeState.userRequest(
-                        new DialogContext(userSession, "статистика")
-                );
-
-                return new ChartResponse(stats, null);
-            }
-
-            return new ChartResponse("Эта команда доступна только в режиме доходов/расходов", null);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ChartResponse("Ошибка при генерации статистики", null);
-        }
-    }
-
+    // Метод для обработки статистики с диаграммой
     public static class ChartResponse {
         private final String statistics;
 
-        public ChartResponse(String statistics, String chartPath) {
+        public ChartResponse(String statistics) {
             this.statistics = statistics;
         }
 
         public String getStatistics() {
             return statistics;
         }
+    }
+
+    public ChartResponse processStatistics(Long userId) {
+        DialogState currentState = getCurrentState(userId);
+
+        if (currentState instanceof FinanceState) {
+            FinanceState financeState = (FinanceState) currentState;
+            UserSession session = sessionManager.getOrCreateSession(userId);
+            String stats = financeState.userRequest(new DialogContext(session, "stats"));
+            return new ChartResponse(stats);
+        }
+
+        return new ChartResponse("Статистика доступна только в режиме доходов или расходов.");
     }
 }

@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.text.MessageFormat;
 
 public class UserCategoryStorage {
     private static final String CATEGORIES_FILE = "user_data/categories_data.json";
@@ -222,8 +223,8 @@ public class UserCategoryStorage {
         UserPeriods periodData = getUserPeriods(userId);
         LocalDate currentDate = LocalDate.now();
 
-        // Проверяем, нужно ли выполнить сброс
-        if (periodData.enabled) {
+        if (periodData.enabled && periodData.nextResetDate != null
+                && !periodData.nextResetDate.isEmpty()) {
             LocalDate nextResetDate = LocalDate.parse(periodData.nextResetDate, DateTimeFormatter.ISO_LOCAL_DATE);
 
             if (currentDate.isAfter(nextResetDate) || currentDate.isEqual(nextResetDate)) {
@@ -231,7 +232,6 @@ public class UserCategoryStorage {
             }
         }
 
-        // Обновляем дни до сброса
         if (periodData.enabled) {
             periodData.daysLeft = calculateDaysLeft(currentDate, periodData.nextResetDate);
         } else {
@@ -280,71 +280,21 @@ public class UserCategoryStorage {
         savePeriodsData();
     }
 
-    public static boolean manualResetPeriod(Long userId) {
-        UserPeriods periodData = getUserPeriods(userId);
+    public static String manualResetPeriod(Long userId) {
+        try {
+            return resetPeriod(userId);
 
-        if (!periodData.enabled) {
-            return false;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
-
-        return autoResetPeriod(userId);
     }
 
     private static boolean autoResetPeriod(Long userId) {
         try {
-            UserPeriods periodData = getUserPeriods(userId);
+            String notificationMessage = resetPeriod(userId);
 
-            Map<String, Object> historyEntry = new HashMap<>();
-            historyEntry.put("periodType", periodData.periodType);
-            historyEntry.put("startDate", periodData.periodStartDate);
-            historyEntry.put("endDate", LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
-
-            // Собираем данные по доходам и расходам
-            Map<String, Double> incomeCategories = loadUserCategories(userId, "income");
-            Map<String, Double> expenseCategories = loadUserCategories(userId, "expense");
-
-            double incomeTotal = incomeCategories.values().stream().mapToDouble(Double::doubleValue).sum();
-            double expenseTotal = expenseCategories.values().stream().mapToDouble(Double::doubleValue).sum();
-
-            historyEntry.put("incomeTotal", incomeTotal);
-            historyEntry.put("expenseTotal", expenseTotal);
-            historyEntry.put("balance", incomeTotal - expenseTotal);
-
-            periodData.history.add(historyEntry);
-
-            // Ограничиваем размер истории
-            if (periodData.history.size() > 5) {
-                periodData.history = periodData.history.subList(
-                        periodData.history.size() - 5,
-                        periodData.history.size()
-                );
-            }
-
-            // Сбрасываем доходы
-            Map<String, Double> resetIncomeCategories = new HashMap<>();
-            Map<String, Double> incomeLimitsGoals = loadLimitsGoals(userId, "income");
-            for (String category : incomeCategories.keySet()) {
-                resetIncomeCategories.put(category, 0.0);
-            }
-            saveUserCategoriesAndLimits(userId, "income", resetIncomeCategories, incomeLimitsGoals);
-
-            // Сбрасываем расходы
-            Map<String, Double> resetExpenseCategories = new HashMap<>();
-            Map<String, Double> expenseLimitsGoals = loadLimitsGoals(userId, "expense");
-            for (String category : expenseCategories.keySet()) {
-                resetExpenseCategories.put(category, 0.0);
-            }
-            saveUserCategoriesAndLimits(userId, "expense", resetExpenseCategories, expenseLimitsGoals);
-
-            LocalDate newStartDate = LocalDate.now();
-            periodData.periodStartDate = newStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
-            periodData.lastResetDate = newStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
-
-            String nextResetDate = calculateNextResetDate(periodData.periodType, newStartDate);
-            periodData.nextResetDate = nextResetDate;
-            periodData.daysLeft = calculateDaysLeft(newStartDate, nextResetDate);
-
-            savePeriodsData();
+            saveNotificationForUser(userId, notificationMessage);
 
             return true;
         } catch (Exception e) {
@@ -353,11 +303,172 @@ public class UserCategoryStorage {
         }
     }
 
+    private static String resetPeriod(Long userId) {
+        UserPeriods periodData = getUserPeriods(userId);
+        Map<String, Object> historyEntry = new HashMap<>();
+        historyEntry.put("periodType", periodData.periodType);
+        historyEntry.put("startDate", periodData.periodStartDate);
+        historyEntry.put("endDate", LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
+
+        Map<String, Double> incomeCategories = loadUserCategories(userId, "income");
+        Map<String, Double> expenseCategories = loadUserCategories(userId, "expense");
+
+        double incomeTotal = incomeCategories.values().stream().mapToDouble(Double::doubleValue).sum();
+        double expenseTotal = expenseCategories.values().stream().mapToDouble(Double::doubleValue).sum();
+        double balance = incomeTotal - expenseTotal;
+
+        historyEntry.put("incomeTotal", incomeTotal);
+        historyEntry.put("expenseTotal", expenseTotal);
+        historyEntry.put("balance", balance);
+        historyEntry.put("incomeDetails", new HashMap<>(incomeCategories));
+        historyEntry.put("expenseDetails", new HashMap<>(expenseCategories));
+
+        periodData.history.add(historyEntry);
+
+        if (periodData.history.size() > 1) {
+            periodData.history = periodData.history.subList(
+                    periodData.history.size() - 1,
+                    periodData.history.size()
+            );
+        }
+
+        Map<String, Double> resetIncomeCategories = new HashMap<>();
+        Map<String, Double> incomeLimitsGoals = loadLimitsGoals(userId, "income");
+        for (String category : incomeCategories.keySet()) {
+            resetIncomeCategories.put(category, 0.0);
+        }
+        saveUserCategoriesAndLimits(userId, "income", resetIncomeCategories, incomeLimitsGoals);
+
+        Map<String, Double> resetExpenseCategories = new HashMap<>();
+        Map<String, Double> expenseLimitsGoals = loadLimitsGoals(userId, "expense");
+        for (String category : expenseCategories.keySet()) {
+            resetExpenseCategories.put(category, 0.0);
+        }
+        saveUserCategoriesAndLimits(userId, "expense", resetExpenseCategories, expenseLimitsGoals);
+
+        LocalDate newStartDate = LocalDate.now();
+        periodData.periodStartDate = newStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
+        periodData.lastResetDate = newStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+        String nextResetDate = calculateNextResetDate(periodData.periodType, newStartDate);
+        periodData.nextResetDate = nextResetDate;
+        periodData.daysLeft = calculateDaysLeft(newStartDate, nextResetDate);
+
+        savePeriodsData();
+
+        return generateResetNotification(
+                periodData,
+                incomeCategories,
+                expenseCategories,
+                incomeTotal,
+                expenseTotal,
+                balance
+        );
+    }
+
+    private static Map<Long, String> pendingNotifications = new ConcurrentHashMap<>();
+
+    private static void saveNotificationForUser(Long userId, String message) {
+        pendingNotifications.put(userId, message);
+    }
+
+    public static String getPendingNotification(Long userId) {
+        return pendingNotifications.remove(userId);
+    }
+
+    private static String generateResetNotification(UserPeriods periodData,
+                                                    Map<String, Double> incomeCategories,
+                                                    Map<String, Double> expenseCategories,
+                                                    double incomeTotal, double expenseTotal,
+                                                    double balance) {
+        try {
+            StringBuilder incomeDetails = new StringBuilder();
+            if (!incomeCategories.isEmpty()) {
+                boolean hasIncome = false;
+                for (Map.Entry<String, Double> entry : incomeCategories.entrySet()) {
+                    if (entry.getValue() > 0) {
+                        incomeDetails.append("  • ").append(entry.getKey())
+                                .append(": ").append(String.format("%.2f", entry.getValue()))
+                                .append(" руб\n");
+                        hasIncome = true;
+                    }
+                }
+                if (!hasIncome) {
+                    incomeDetails.append("  (нет доходов)\n");
+                }
+            } else {
+                incomeDetails.append("  (нет доходов)\n");
+            }
+
+            StringBuilder expenseDetails = new StringBuilder();
+            if (!expenseCategories.isEmpty()) {
+                boolean hasExpense = false;
+                for (Map.Entry<String, Double> entry : expenseCategories.entrySet()) {
+                    if (entry.getValue() > 0) {
+                        expenseDetails.append("  • ").append(entry.getKey())
+                                .append(": ").append(String.format("%.2f", entry.getValue()))
+                                .append(" руб\n");
+                        hasExpense = true;
+                    }
+                }
+                if (!hasExpense) {
+                    expenseDetails.append("  (нет расходов)\n");
+                }
+            } else {
+                expenseDetails.append("  (нет расходов)\n");
+            }
+
+            String periodName = getPeriodNameForNotification(periodData.periodType);
+            String message = MessageFormat.format(""" 
+🔄 Период сброшен
+
+Завершен период: {0}
+Новый период начат: {1}
+
+📊 Итоги завершенного периода:
+    Доходы: {2} руб
+{3}
+    Расходы: {4} руб
+{5}
+    Баланс: {6} руб
+
+⏰ Следующий сброс: {7}
+⏳ Дней до сброса: {8}
+
+    Все суммы обнулены, начинаем новый период!""",
+                    periodName,
+                    LocalDate.now(),
+                    String.format("%.2f", incomeTotal),
+                    "* Детали по доходам:\n" + incomeDetails,
+                    String.format("%.2f", expenseTotal),
+                    "* Детали по расходам:\n" + expenseDetails,
+                    String.format("%.2f", balance),
+                    periodData.nextResetDate,
+                    periodData.daysLeft
+            );
+
+            return message;
+
+        } catch (Exception e) {
+            System.err.println("Ошибка формирования уведомления: " + e.getMessage());
+            return "🔄 Период был успешно сброшен. Начинаем новый период!";
+        }
+    }
+
+    private static String getPeriodNameForNotification(String periodType) {
+        switch (periodType) {
+            case "day": return "День";
+            case "week": return "Неделя";
+            case "month": return "Месяц";
+            default: return "Период";
+        }
+    }
+
     private static void startPeriodResetMonitorThread() {
         Thread monitorThread = new Thread(() -> {
             while (true) {
                 try {
-                    Thread.sleep(60 * 60 * 1000L); // Проверяем каждый час
+                    Thread.sleep(60 * 60 * 1000L);
                     checkAndResetAllPeriods();
                 } catch (InterruptedException e) {
                     break;
@@ -374,16 +485,22 @@ public class UserCategoryStorage {
         for (Map.Entry<String, UserPeriods> entry : allPeriods.entrySet()) {
             UserPeriods periodData = entry.getValue();
 
-            if (periodData.enabled) {
-                LocalDate nextResetDate = LocalDate.parse(periodData.nextResetDate, DateTimeFormatter.ISO_LOCAL_DATE);
+            if (periodData.enabled && periodData.nextResetDate != null && !periodData.nextResetDate.isEmpty()) {
+                try {
+                    LocalDate nextResetDate = LocalDate.parse(periodData.nextResetDate, DateTimeFormatter.ISO_LOCAL_DATE);
 
-                if (currentDate.isAfter(nextResetDate) || currentDate.isEqual(nextResetDate)) {
-                    try {
-                        Long userId = Long.parseLong(entry.getKey());
-                        autoResetPeriod(userId);
-                    } catch (NumberFormatException e) {
-                        // Игнорируем некорректные ключи
+                    if (currentDate.isAfter(nextResetDate) || currentDate.isEqual(nextResetDate)) {
+                        try {
+                            Long userId = Long.parseLong(entry.getKey());
+                            autoResetPeriod(userId);
+
+                            System.out.println("Уведомление о сбросе периода сохранено для пользователя: " + userId);
+                        } catch (NumberFormatException e) {
+                        }
                     }
+                } catch (Exception e) {
+                    System.err.println("Ошибка парсинга даты в checkAndResetAllPeriods для пользователя " +
+                            entry.getKey() + ": " + e.getMessage());
                 }
             }
         }

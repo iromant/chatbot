@@ -2,11 +2,8 @@ package personalBanker.dialog.manager;
 
 import personalBanker.dialog.states.*;
 import personalBanker.dialog.model.*;
-import personalBanker.messageprovider.AggregatorMessage;
-import personalBanker.dialog.storage.UserCategoryStorage;
 
 import java.util.*;
-import java.time.LocalDate;
 
 public class DialogManager {
     private final UserSessionManager sessionManager;

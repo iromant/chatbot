@@ -8,6 +8,316 @@ import java.util.*;
 
 public class KeyboardManager {
 
+    private static final Map<String, InlineKeyboardButton> buttonCache = new HashMap<>();
+    private static final Map<String, InlineKeyboardMarkup> keyboardCache = new HashMap<>();
+
+    private static final String KEY_START_MENU = "start_menu";
+    private static final String KEY_MAIN_MENU = "main_menu";
+    private static final String KEY_HELP = "help";
+    private static final String KEY_BACK_ONLY = "back_only";
+    private static final String KEY_INCOME_MENU = "income_menu";
+    private static final String KEY_EXPENSE_MENU = "expense_menu";
+    private static final String KEY_PERIOD_SELECTION = "period_selection";
+    private static final String KEY_CATEGORY_MANAGEMENT = "category_management";
+    private static final String KEY_ADD_CATEGORY = "add_category";
+    private static final String KEY_CLEAR_DATA_CONFIRMATION = "clear_data_confirmation";
+    private static final String KEY_PERIOD_CONFIRM_RESET = "period_confirm_reset";
+
+    static {
+        initializeButtonCache();
+        initializeKeyboardCache();
+    }
+
+    private static void initializeButtonCache() {
+        buttonCache.put("BACK", createNewInlineButton("Назад", "BACK"));
+        buttonCache.put("MAIN_MENU", createNewInlineButton("Меню", "MAIN_MENU"));
+        buttonCache.put("HELP", createNewInlineButton("Справка", "HELP"));
+        buttonCache.put("YES", createNewInlineButton("Да", "YES"));
+        buttonCache.put("NO", createNewInlineButton("Нет", "NO"));
+
+        // Кнопки для основного меню
+        buttonCache.put("INCOME_MENU", createNewInlineButton("Доходы", "INCOME_MENU"));
+        buttonCache.put("EXPENSE_MENU", createNewInlineButton("Расходы", "EXPENSE_MENU"));
+        buttonCache.put("PERIOD_MENU", createNewInlineButton("Срок учета", "PERIOD_MENU"));
+        buttonCache.put("CLEAR_MY_DATA", createNewInlineButton("Удалить данные", "CLEAR_MY_DATA"));
+
+        // Кнопки для меню доходов/расходов
+        buttonCache.put("INCOME_ADD", createNewInlineButton("Добавить доход", "INCOME_ADD"));
+        buttonCache.put("INCOME_REMOVE", createNewInlineButton("Удалить доход", "INCOME_REMOVE"));
+        buttonCache.put("INCOME_STATS", createNewInlineButton("Статистика", "INCOME_STATS"));
+        buttonCache.put("EXPENSE_ADD", createNewInlineButton("Добавить расход", "EXPENSE_ADD"));
+        buttonCache.put("EXPENSE_REMOVE", createNewInlineButton("Удалить расход", "EXPENSE_REMOVE"));
+        buttonCache.put("EXPENSE_STATS", createNewInlineButton("Статистика", "EXPENSE_STATS"));
+        buttonCache.put("MANAGE_CATEGORIES", createNewInlineButton("Категории", "MANAGE_CATEGORIES"));
+
+        // Кнопки для управления категориями
+        buttonCache.put("ADD_CATEGORY", createNewInlineButton("Добавить", "ADD_CATEGORY"));
+        buttonCache.put("REMOVE_CATEGORY", createNewInlineButton("Удалить", "REMOVE_CATEGORY"));
+        buttonCache.put("SET_LIMIT_GOAL", createNewInlineButton("Установка целей/лимитов", "SET_LIMIT_GOAL"));
+
+        // Кнопки для периодов
+        buttonCache.put("PERIOD_SET", createNewInlineButton("Изменить период", "PERIOD_SET"));
+        buttonCache.put("PERIOD_INFO", createNewInlineButton("Информация", "PERIOD_INFO"));
+        buttonCache.put("PERIOD_RESET_NOW", createNewInlineButton("Сбросить сейчас", "PERIOD_RESET_NOW"));
+        buttonCache.put("PERIOD_DAY", createNewInlineButton("День", "PERIOD_DAY"));
+        buttonCache.put("PERIOD_WEEK", createNewInlineButton("Неделя", "PERIOD_WEEK"));
+        buttonCache.put("PERIOD_MONTH", createNewInlineButton("Месяц", "PERIOD_MONTH"));
+        buttonCache.put("PERIOD_CONFIRM_RESET", createNewInlineButton("Да, сбросить", "PERIOD_CONFIRM_RESET"));
+        buttonCache.put("PERIOD_CANCEL_RESET", createNewInlineButton("Нет, отменить", "PERIOD_CANCEL_RESET"));
+        buttonCache.put("CONFIRM_CLEAR_DATA", createNewInlineButton("Да, удалить всё", "CONFIRM_CLEAR_DATA"));
+        buttonCache.put("CANCEL_CLEAR_DATA", createNewInlineButton("Нет, отменить", "CANCEL_CLEAR_DATA"));
+    }
+
+    private static void initializeKeyboardCache() {
+        keyboardCache.put(KEY_START_MENU, createStartMenuKeyboard());
+        keyboardCache.put(KEY_MAIN_MENU, createMainMenuKeyboard());
+        keyboardCache.put(KEY_HELP, createHelpKeyboard());
+        keyboardCache.put(KEY_BACK_ONLY, createBackOnlyKeyboard());
+        keyboardCache.put(KEY_INCOME_MENU, createIncomeMenuKeyboard());
+        keyboardCache.put(KEY_EXPENSE_MENU, createExpenseMenuKeyboard());
+        keyboardCache.put(KEY_PERIOD_SELECTION, createPeriodSelectionKeyboard());
+        keyboardCache.put(KEY_CATEGORY_MANAGEMENT, createCategoryManagementKeyboard());
+        keyboardCache.put(KEY_ADD_CATEGORY, createAddNewCategoryKeyboard());
+        keyboardCache.put(KEY_CLEAR_DATA_CONFIRMATION, createClearDataConfirmationKeyboard());
+        keyboardCache.put(KEY_PERIOD_CONFIRM_RESET, createPeriodConfirmResetKeyboard());
+    }
+
+
+    public static InlineKeyboardMarkup getStartMenuKeyboard() {
+        return keyboardCache.get(KEY_START_MENU);
+    }
+
+    public static InlineKeyboardMarkup getMainMenuKeyboard() {
+        return keyboardCache.get(KEY_MAIN_MENU);
+    }
+
+    public static InlineKeyboardMarkup getHelpKeyboard() {
+        return keyboardCache.get(KEY_HELP);
+    }
+
+    public static InlineKeyboardMarkup getBackOnlyKeyboard() {
+        return keyboardCache.get(KEY_BACK_ONLY);
+    }
+
+    public static InlineKeyboardMarkup getIncomeMenuKeyboard() {
+        return keyboardCache.get(KEY_INCOME_MENU);
+    }
+
+    public static InlineKeyboardMarkup getExpenseMenuKeyboard() {
+        return keyboardCache.get(KEY_EXPENSE_MENU);
+    }
+
+    public static InlineKeyboardMarkup getPeriodSelectionKeyboard() {
+        return keyboardCache.get(KEY_PERIOD_SELECTION);
+    }
+
+    public static InlineKeyboardMarkup getCategoryManagementKeyboard() {
+        return keyboardCache.get(KEY_CATEGORY_MANAGEMENT);
+    }
+
+    public static InlineKeyboardMarkup getAddNewCategoryKeyboard() {
+        return keyboardCache.get(KEY_ADD_CATEGORY);
+    }
+
+    public static InlineKeyboardMarkup getClearDataConfirmationKeyboard() {
+        return keyboardCache.get(KEY_CLEAR_DATA_CONFIRMATION);
+    }
+
+    public static InlineKeyboardMarkup getPeriodConfirmResetKeyboard() {
+        return keyboardCache.get(KEY_PERIOD_CONFIRM_RESET);
+    }
+
+    public static InlineKeyboardButton createInlineButton(String text, String callbackData) {
+        String cacheKey = callbackData + "|" + text;
+        return buttonCache.computeIfAbsent(cacheKey,
+                key -> createNewInlineButton(text, callbackData));
+    }
+
+    private static InlineKeyboardButton createNewInlineButton(String text, String callbackData) {
+        InlineKeyboardButton button = new InlineKeyboardButton();
+        button.setText(text);
+        button.setCallbackData(callbackData);
+        return button;
+    }
+
+    private static InlineKeyboardMarkup createStartMenuKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("MAIN_MENU"));
+
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        row2.add(buttonCache.get("HELP"));
+
+        keyboard.add(row1);
+        keyboard.add(row2);
+
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createMainMenuKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("INCOME_MENU"));
+        row1.add(buttonCache.get("EXPENSE_MENU"));
+
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        row2.add(buttonCache.get("PERIOD_MENU"));
+        row2.add(buttonCache.get("HELP"));
+
+        List<InlineKeyboardButton> row3 = new ArrayList<>();
+        row3.add(buttonCache.get("CLEAR_MY_DATA"));
+
+        keyboard.add(row1);
+        keyboard.add(row2);
+        keyboard.add(row3);
+
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createHelpKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row = new ArrayList<>();
+        row.add(buttonCache.get("BACK"));
+        row.add(buttonCache.get("MAIN_MENU"));
+
+        keyboard.add(row);
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createBackOnlyKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row = new ArrayList<>();
+        row.add(buttonCache.get("BACK"));
+
+        keyboard.add(row);
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createIncomeMenuKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("INCOME_ADD"));
+        row1.add(buttonCache.get("INCOME_REMOVE"));
+
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        row2.add(buttonCache.get("INCOME_STATS"));
+        row2.add(buttonCache.get("MANAGE_CATEGORIES"));
+
+        List<InlineKeyboardButton> row3 = new ArrayList<>();
+        row3.add(buttonCache.get("HELP"));
+        row3.add(buttonCache.get("MAIN_MENU"));
+
+        List<InlineKeyboardButton> row4 = new ArrayList<>();
+        row4.add(buttonCache.get("BACK"));
+
+        keyboard.add(row1);
+        keyboard.add(row2);
+        keyboard.add(row3);
+        keyboard.add(row4);
+
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createExpenseMenuKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("EXPENSE_ADD"));
+        row1.add(buttonCache.get("EXPENSE_REMOVE"));
+
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        row2.add(buttonCache.get("EXPENSE_STATS"));
+        row2.add(buttonCache.get("MANAGE_CATEGORIES"));
+
+        List<InlineKeyboardButton> row3 = new ArrayList<>();
+        row3.add(buttonCache.get("HELP"));
+        row3.add(buttonCache.get("MAIN_MENU"));
+
+        List<InlineKeyboardButton> row4 = new ArrayList<>();
+        row4.add(buttonCache.get("BACK"));
+
+        keyboard.add(row1);
+        keyboard.add(row2);
+        keyboard.add(row3);
+        keyboard.add(row4);
+
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createPeriodSelectionKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("PERIOD_DAY"));
+        row1.add(buttonCache.get("PERIOD_WEEK"));
+        row1.add(buttonCache.get("PERIOD_MONTH"));
+
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        row2.add(buttonCache.get("BACK"));
+
+        keyboard.add(row1);
+        keyboard.add(row2);
+
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createCategoryManagementKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("ADD_CATEGORY"));
+        row1.add(buttonCache.get("REMOVE_CATEGORY"));
+
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        row2.add(buttonCache.get("SET_LIMIT_GOAL"));
+
+        List<InlineKeyboardButton> row3 = new ArrayList<>();
+        row3.add(buttonCache.get("BACK"));
+
+        keyboard.add(row1);
+        keyboard.add(row2);
+        keyboard.add(row3);
+
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createAddNewCategoryKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("YES"));
+        row1.add(buttonCache.get("NO"));
+        keyboard.add(row1);
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createClearDataConfirmationKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("CONFIRM_CLEAR_DATA"));
+        row1.add(buttonCache.get("CANCEL_CLEAR_DATA"));
+
+        keyboard.add(row1);
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static InlineKeyboardMarkup createPeriodConfirmResetKeyboard() {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        row1.add(buttonCache.get("PERIOD_CONFIRM_RESET"));
+        row1.add(buttonCache.get("PERIOD_CANCEL_RESET"));
+
+        keyboard.add(row1);
+        return new InlineKeyboardMarkup(keyboard);
+    }
+
     public static List<String> getUserCategories(Long userId, String type) {
         Map<String, Double> categoriesMap = UserCategoryStorage.loadUserCategories(userId, type);
         List<String> userCategories = new ArrayList<>();
@@ -28,90 +338,6 @@ public class KeyboardManager {
         return new ArrayList<>(categoriesMap.keySet());
     }
 
-    public static InlineKeyboardMarkup getStartMenuKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Меню", "MAIN_MENU"));
-
-        List<InlineKeyboardButton> row2 = new ArrayList<>();
-        row2.add(createInlineButton("Справка", "HELP"));
-
-        keyboard.add(row1);
-        keyboard.add(row2);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    public static InlineKeyboardMarkup getMainMenuKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Доходы", "INCOME_MENU"));
-        row1.add(createInlineButton("Расходы", "EXPENSE_MENU"));
-
-        List<InlineKeyboardButton> row2 = new ArrayList<>();
-        row2.add(createInlineButton("Срок учета", "PERIOD_MENU"));
-        row2.add(createInlineButton("Справка", "HELP"));
-
-        keyboard.add(row1);
-        keyboard.add(row2);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    public static InlineKeyboardMarkup getIncomeMenuKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Добавить доход", "INCOME_ADD"));
-        row1.add(createInlineButton("Удалить доход", "INCOME_REMOVE"));
-
-        List<InlineKeyboardButton> row2 = new ArrayList<>();
-        row2.add(createInlineButton("Статистика", "INCOME_STATS"));
-        row2.add(createInlineButton("Категории", "MANAGE_CATEGORIES"));
-
-        List<InlineKeyboardButton> row3 = new ArrayList<>();
-        row3.add(createInlineButton("Справка", "HELP"));
-        row3.add(createInlineButton("Главное меню", "MAIN_MENU"));
-
-        List<InlineKeyboardButton> row4 = new ArrayList<>();
-        row4.add(createInlineButton("Назад", "BACK"));
-
-        keyboard.add(row1);
-        keyboard.add(row2);
-        keyboard.add(row3);
-        keyboard.add(row4);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    public static InlineKeyboardMarkup getExpenseMenuKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Добавить расход", "EXPENSE_ADD"));
-        row1.add(createInlineButton("Удалить расход", "EXPENSE_REMOVE"));
-
-        List<InlineKeyboardButton> row2 = new ArrayList<>();
-        row2.add(createInlineButton("Статистика", "EXPENSE_STATS"));
-        row2.add(createInlineButton("Категории", "MANAGE_CATEGORIES"));
-
-        List<InlineKeyboardButton> row3 = new ArrayList<>();
-        row3.add(createInlineButton("Справка", "HELP"));
-        row3.add(createInlineButton("Главное меню", "MAIN_MENU"));
-
-        List<InlineKeyboardButton> row4 = new ArrayList<>();
-        row4.add(createInlineButton("Назад", "BACK"));
-
-        keyboard.add(row1);
-        keyboard.add(row2);
-        keyboard.add(row3);
-        keyboard.add(row4);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
     public static InlineKeyboardMarkup getDynamicIncomeCategoriesKeyboard(Long userId) {
         List<String> baseCategories = Arrays.asList("Работа", "Пассивный доход", "Инвестиции", "Подарки");
         List<String> userCategories = getUserCategories(userId, "income");
@@ -130,82 +356,29 @@ public class KeyboardManager {
         return getBackOnlyKeyboard();
     }
 
-    public static InlineKeyboardMarkup getHelpKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row = new ArrayList<>();
-        row.add(createInlineButton("Назад", "BACK"));
-        row.add(createInlineButton("Меню", "MAIN_MENU"));
-
-        keyboard.add(row);
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    public static InlineKeyboardMarkup getCategoryManagementKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Добавить", "ADD_CATEGORY"));
-        row1.add(createInlineButton("Удалить", "REMOVE_CATEGORY"));
-
-        List<InlineKeyboardButton> row2 = new ArrayList<>();
-        row2.add(createInlineButton("Установка целей/лимитов", "SET_LIMIT_GOAL"));
-
-        List<InlineKeyboardButton> row3 = new ArrayList<>();
-        row3.add(createInlineButton("Назад", "BACK"));
-
-        keyboard.add(row1);
-        keyboard.add(row2);
-        keyboard.add(row3);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    public static InlineKeyboardMarkup getAddNewCategoryKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Да", "YES"));
-        row1.add(createInlineButton("Нет", "NO"));
-        keyboard.add(row1);
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    public static InlineKeyboardMarkup getBackOnlyKeyboard() {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<InlineKeyboardButton> row = new ArrayList<>();
-        row.add(createInlineButton("Назад", "BACK"));
-
-        keyboard.add(row);
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
     public static InlineKeyboardMarkup getPeriodMenuKeyboard(boolean isEnabled) {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
         if (isEnabled) {
-            // Когда период включен - показываем полное меню
             List<InlineKeyboardButton> row1 = new ArrayList<>();
-            row1.add(createInlineButton("Изменить период", "PERIOD_SET"));
-            row1.add(createInlineButton("Информация", "PERIOD_INFO"));
+            row1.add(buttonCache.get("PERIOD_SET"));
+            row1.add(buttonCache.get("PERIOD_INFO"));
 
             List<InlineKeyboardButton> row2 = new ArrayList<>();
-            row2.add(createInlineButton("Сбросить сейчас", "PERIOD_RESET_NOW"));
+            row2.add(buttonCache.get("PERIOD_RESET_NOW"));
 
             List<InlineKeyboardButton> row3 = new ArrayList<>();
-            row3.add(createInlineButton("Назад", "BACK"));
+            row3.add(buttonCache.get("BACK"));
 
             keyboard.add(row1);
             keyboard.add(row2);
             keyboard.add(row3);
         } else {
-            // Когда период выключен - показываем только кнопку "Задать период"
             List<InlineKeyboardButton> row1 = new ArrayList<>();
-            row1.add(createInlineButton("Задать период", "PERIOD_SET"));
+            row1.add(buttonCache.get("PERIOD_SET"));
 
             List<InlineKeyboardButton> row2 = new ArrayList<>();
-            row2.add(createInlineButton("Назад", "BACK"));
+            row2.add(buttonCache.get("BACK"));
 
             keyboard.add(row1);
             keyboard.add(row2);
@@ -214,33 +387,78 @@ public class KeyboardManager {
         return new InlineKeyboardMarkup(keyboard);
     }
 
-    public static InlineKeyboardMarkup getPeriodSelectionKeyboard() {
+    public static InlineKeyboardMarkup getSetLimitGoalKeyboard(Long userId, boolean isIncome) {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("День", "PERIOD_DAY"));
-        row1.add(createInlineButton("Неделя", "PERIOD_WEEK"));
-        row1.add(createInlineButton("Месяц", "PERIOD_MONTH"));
+        String type = isIncome ? "income" : "expense";
+        List<String> allCategories = getAllCategories(userId, type);
 
-        List<InlineKeyboardButton> row2 = new ArrayList<>();
-        row2.add(createInlineButton("Назад", "BACK"));
+        if (allCategories.isEmpty()) {
+            List<InlineKeyboardButton> backRow = new ArrayList<>();
+            backRow.add(buttonCache.get("BACK"));
+            keyboard.add(backRow);
+            return new InlineKeyboardMarkup(keyboard);
+        }
 
-        keyboard.add(row1);
-        keyboard.add(row2);
+        List<InlineKeyboardButton> currentRow = new ArrayList<>();
+        for (int i = 0; i < allCategories.size(); i++) {
+            String category = allCategories.get(i);
+            String callbackData = "SET_LIMIT_FOR_" + category;
+
+            InlineKeyboardButton button = createInlineButton(category, callbackData);
+            currentRow.add(button);
+
+            if (currentRow.size() == 2 || i == allCategories.size() - 1) {
+                keyboard.add(new ArrayList<>(currentRow));
+                currentRow.clear();
+            }
+        }
+
+        List<InlineKeyboardButton> backRow = new ArrayList<>();
+        backRow.add(buttonCache.get("BACK"));
+        keyboard.add(backRow);
 
         return new InlineKeyboardMarkup(keyboard);
     }
 
-    public static InlineKeyboardMarkup getPeriodConfirmResetKeyboard() {
+    private static InlineKeyboardMarkup getSelectionCategoriesKeyboard(List<String> baseCategories,
+                                                                       List<String> userCategories,
+                                                                       String type) {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
-        List<InlineKeyboardButton> row1 = new ArrayList<>();
-        row1.add(createInlineButton("Да, сбросить", "PERIOD_CONFIRM_RESET"));
-        row1.add(createInlineButton("Нет, отменить", "PERIOD_CANCEL_RESET"));
+        List<String> allCategories = new ArrayList<>(baseCategories);
+        if (userCategories != null) {
+            allCategories.addAll(userCategories);
+        }
 
-        keyboard.add(row1);
+        List<InlineKeyboardButton> currentRow = new ArrayList<>();
+        for (int i = 0; i < allCategories.size(); i++) {
+            String category = allCategories.get(i);
+            String callbackData = "CATEGORY_" + type + "_" + category;
+
+            InlineKeyboardButton button = createInlineButton(category, callbackData);
+            currentRow.add(button);
+
+            if (currentRow.size() == 2 || i == allCategories.size() - 1) {
+                keyboard.add(new ArrayList<>(currentRow));
+                currentRow.clear();
+            }
+        }
+
+        List<InlineKeyboardButton> backRow = new ArrayList<>();
+        backRow.add(buttonCache.get("BACK"));
+        keyboard.add(backRow);
 
         return new InlineKeyboardMarkup(keyboard);
+    }
+
+    private static List<String> getBaseCategoriesForType(String type) {
+        if ("income".equals(type)) {
+            return Arrays.asList("Работа", "Пассивный доход", "Инвестиции", "Подарки");
+        } else if ("expense".equals(type)) {
+            return Arrays.asList("Еда", "Транспорт", "Жилье", "Досуг", "Здоровье");
+        }
+        return new ArrayList<>();
     }
 
     public static InlineKeyboardMarkup getResponseContextKeyboard(String currentState,
@@ -265,11 +483,49 @@ public class KeyboardManager {
         return getKeyboardByStateAndSubState(currentState, subState, userId);
     }
 
-    // Метод для обработки по тексту ответа
+    private static InlineKeyboardMarkup getPeriodStateKeyboard(String subState,
+                                                               String responseText,
+                                                               Long userId) {
+
+        if (responseText.contains("Период сброшен") ||
+                responseText.contains("Новый период начат")) {
+            return getStartMenuKeyboard();
+        }
+
+        Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
+        boolean isEnabled = (Boolean) periodInfo.get("enabled");
+
+        if (responseText.contains("Выберите период для автоматического сброса") ||
+                "SET_PERIOD".equals(subState)) {
+            return getPeriodSelectionKeyboard();
+        }
+
+        if (responseText.contains("Вы уверены, что хотите принудительно сбросить суммы") ||
+                "MANUAL_RESET".equals(subState)) {
+            return getPeriodConfirmResetKeyboard();
+        }
+
+        if (responseText.contains("Периодический сброс выключен") ||
+                responseText.contains("Не удалось сбросить суммы") ||
+                responseText.contains("Информация о периоде") ||
+                "MAIN".equals(subState) ||
+                "VIEW_INFO".equals(subState)) {
+
+            return getPeriodMenuKeyboard(isEnabled);
+        }
+
+        return getPeriodMenuKeyboard(isEnabled);
+    }
+
     private static InlineKeyboardMarkup getKeyboardByResponseText(String currentState,
                                                                   String subState,
                                                                   String responseText,
                                                                   Long userId) {
+
+        // 1. Обработка кнопки удаления данных
+        if (responseText.contains("ВНИМАНИЕ") && responseText.contains("удалить ВСЕ ваши данные")) {
+            return getClearDataConfirmationKeyboard();
+        }
 
         // 2. Обработка установки целей/лимитов
         if (responseText.contains("Установка целей/лимитов") ||
@@ -330,17 +586,27 @@ public class KeyboardManager {
         if (responseText.contains("Неизвестная команда")) {
             List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
             List<InlineKeyboardButton> backRow = new ArrayList<>();
-            backRow.add(createInlineButton("Назад", "BACK"));
-            backRow.add(createInlineButton("Справка", "HELP"));
+            backRow.add(buttonCache.get("BACK"));
+            backRow.add(buttonCache.get("HELP"));
             keyboard.add(backRow);
 
             return new InlineKeyboardMarkup(keyboard);
         }
 
+        //9. Обработка просмотра статистики
+        if (responseText.contains("Просмотреть статистику")) {
+            return getBackOnlyKeyboard();
+        }
+
+        //10. Обработка для текста о сбросе периода
+        if (responseText.contains("Период сброшен") &&
+                responseText.contains("Новый период начат")) {
+            return getBackOnlyKeyboard();
+        }
+
         return null; // Если не нашли совпадение по тексту
     }
 
-    // Метод для обработки по состоянию и подсостоянию
     private static InlineKeyboardMarkup getKeyboardByStateAndSubState(String currentState,
                                                                       String subState,
                                                                       Long userId) {
@@ -350,7 +616,6 @@ public class KeyboardManager {
             Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
             boolean isEnabled = (Boolean) periodInfo.get("enabled");
 
-            // Учитываем подсостояния PeriodState
             switch (subState) {
                 case "SET_PERIOD":
                     return getPeriodSelectionKeyboard();
@@ -407,15 +672,12 @@ public class KeyboardManager {
                 return getMainMenuKeyboard();
 
             case "ExpenseState":
-                // Сюда попадаем только если не IncomeState и не обработали подсостояния
                 return getExpenseMenuKeyboard();
 
             case "IncomeState":
-                // Сюда попадаем только если не ExpenseState и не обработали подсостояния
                 return getIncomeMenuKeyboard();
 
             case "PeriodState":
-                // Сюда не должны попадать (обработано выше)
                 Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
                 boolean isEnabled = (Boolean) periodInfo.get("enabled");
                 return getPeriodMenuKeyboard(isEnabled);
@@ -423,127 +685,5 @@ public class KeyboardManager {
             default:
                 return getMainMenuKeyboard();
         }
-    }
-
-    private static InlineKeyboardMarkup getPeriodStateKeyboard(String subState,
-                                                               String responseText,
-                                                               Long userId) {
-
-        Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
-        boolean isEnabled = (Boolean) periodInfo.get("enabled");
-
-        // После установки периода показываем меню с включенным периодом
-        if (responseText.contains("Периодический сброс установлен") ||
-                responseText.contains("Суммы успешно сброшены")) {
-            // Период точно включен после этих действий
-            return getPeriodMenuKeyboard(true);
-        }
-
-        if (responseText.contains("Выберите период для автоматического сброса") ||
-                "SET_PERIOD".equals(subState)) {
-            return getPeriodSelectionKeyboard();
-        }
-
-        if (responseText.contains("Вы уверены, что хотите принудительно сбросить суммы") ||
-                "MANUAL_RESET".equals(subState)) {
-            return getPeriodConfirmResetKeyboard();
-        }
-
-        if (responseText.contains("Периодический сброс выключен") ||
-                responseText.contains("Не удалось сбросить суммы") ||
-                responseText.contains("Информация о периоде") ||
-                "MAIN".equals(subState) ||
-                "VIEW_INFO".equals(subState)) {
-
-            return getPeriodMenuKeyboard(isEnabled);
-        }
-
-        // По умолчанию - показываем меню с текущим статусом периода
-        return getPeriodMenuKeyboard(isEnabled);
-    }
-
-    private static InlineKeyboardMarkup getSelectionCategoriesKeyboard(List<String> baseCategories,
-                                                                       List<String> userCategories,
-                                                                       String type) {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        List<String> allCategories = new ArrayList<>(baseCategories);
-        if (userCategories != null) {
-            allCategories.addAll(userCategories);
-        }
-
-        // Создаем кнопки категорий (2 в строке)
-        List<InlineKeyboardButton> currentRow = new ArrayList<>();
-        for (int i = 0; i < allCategories.size(); i++) {
-            String category = allCategories.get(i);
-            String callbackData = "CATEGORY_" + type + "_" + category;
-
-            InlineKeyboardButton button = createInlineButton(category, callbackData);
-            currentRow.add(button);
-
-            if (currentRow.size() == 2 || i == allCategories.size() - 1) {
-                keyboard.add(new ArrayList<>(currentRow));
-                currentRow.clear();
-            }
-        }
-
-        // Добавляем кнопку "Назад"
-        List<InlineKeyboardButton> backRow = new ArrayList<>();
-        backRow.add(createInlineButton("Назад", "BACK"));
-        keyboard.add(backRow);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    private static InlineKeyboardButton createInlineButton(String text, String callbackData) {
-        InlineKeyboardButton button = new InlineKeyboardButton();
-        button.setText(text);
-        button.setCallbackData(callbackData);
-        return button;
-    }
-
-    public static InlineKeyboardMarkup getSetLimitGoalKeyboard(Long userId, boolean isIncome) {
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
-        String type = isIncome ? "income" : "expense";
-        List<String> allCategories = getAllCategories(userId, type);
-
-        if (allCategories.isEmpty()) {
-            List<InlineKeyboardButton> backRow = new ArrayList<>();
-            backRow.add(createInlineButton("Назад", "BACK"));
-            keyboard.add(backRow);
-            return new InlineKeyboardMarkup(keyboard);
-        }
-
-        // Создаем кнопки категорий (по 2 в строке)
-        List<InlineKeyboardButton> currentRow = new ArrayList<>();
-        for (int i = 0; i < allCategories.size(); i++) {
-            String category = allCategories.get(i);
-            String callbackData = "SET_LIMIT_FOR_" + category;
-
-            InlineKeyboardButton button = createInlineButton(category, callbackData);
-            currentRow.add(button);
-
-            if (currentRow.size() == 2 || i == allCategories.size() - 1) {
-                keyboard.add(new ArrayList<>(currentRow));
-                currentRow.clear();
-            }
-        }
-
-        // Добавляем кнопки управления
-        List<InlineKeyboardButton> backRow = new ArrayList<>();
-        backRow.add(createInlineButton("Назад", "BACK"));
-        keyboard.add(backRow);
-
-        return new InlineKeyboardMarkup(keyboard);
-    }
-
-    private static List<String> getBaseCategoriesForType(String type) {
-        if ("income".equals(type)) {
-            return Arrays.asList("Работа", "Пассивный доход", "Инвестиции", "Подарки");
-        } else if ("expense".equals(type)) {
-            return Arrays.asList("Еда", "Транспорт", "Жилье", "Досуг", "Здоровье");
-        }
-        return new ArrayList<>();
     }
 }

@@ -23,11 +23,15 @@ public class UserCategoryStorage {
     private static Map<String, UserCategories> allCategories = new ConcurrentHashMap<>();
     private static Map<String, UserPeriods> allPeriods = new ConcurrentHashMap<>();
 
+    private static final boolean USE_DATABASE = true;
+
     static {
         new File("user_data").mkdirs();
-        loadCategoriesData();
-        loadPeriodsData();
-        startAutoSaveThread();
+        if (!USE_DATABASE) {
+            loadCategoriesData();
+            loadPeriodsData();
+            startAutoSaveThread();
+        }
         startPeriodResetMonitorThread();
     }
 
@@ -88,8 +92,9 @@ public class UserCategoryStorage {
     }
 
     private static void loadCategoriesData() {
-        File file = new File(CATEGORIES_FILE);
+        if (USE_DATABASE) return;
 
+        File file = new File(CATEGORIES_FILE);
         if (!file.exists()) {
             allCategories = new ConcurrentHashMap<>();
             return;
@@ -113,8 +118,9 @@ public class UserCategoryStorage {
     }
 
     private static void loadPeriodsData() {
-        File file = new File(PERIODS_FILE);
+        if (USE_DATABASE) return;
 
+        File file = new File(PERIODS_FILE);
         if (!file.exists()) {
             allPeriods = new ConcurrentHashMap<>();
             return;
@@ -151,6 +157,8 @@ public class UserCategoryStorage {
     }
 
     private static void saveCategoriesData() {
+        if (USE_DATABASE) return;
+
         try (FileWriter writer = new FileWriter(CATEGORIES_FILE)) {
             gson.toJson(allCategories, writer);
         } catch (IOException e) {
@@ -159,6 +167,8 @@ public class UserCategoryStorage {
     }
 
     private static void savePeriodsData() {
+        if (USE_DATABASE) return;
+
         try (FileWriter writer = new FileWriter(PERIODS_FILE)) {
             gson.toJson(allPeriods, writer);
         } catch (IOException e) {
@@ -167,11 +177,15 @@ public class UserCategoryStorage {
     }
 
     private static void saveAllData() {
+        if (USE_DATABASE) return;
+
         saveCategoriesData();
         savePeriodsData();
     }
 
     private static void startAutoSaveThread() {
+        if (USE_DATABASE) return;
+
         Thread autoSaveThread = new Thread(() -> {
             while (true) {
                 try {
@@ -187,11 +201,32 @@ public class UserCategoryStorage {
     }
 
     private static UserCategories getUserCategories(Long userId, String type) {
+        if (USE_DATABASE) {
+            UserCategories userData = new UserCategories();
+            userData.categories = DatabaseManager.loadUserCategories(userId, type);
+            userData.limitsGoals = DatabaseManager.loadLimitsGoals(userId, type);
+            return userData;
+        }
+
         String key = getUserKey(userId, type);
         return allCategories.computeIfAbsent(key, k -> new UserCategories());
     }
 
     private static UserPeriods getUserPeriods(Long userId) {
+        if (USE_DATABASE) {
+            Map<String, Object> periodInfo = DatabaseManager.getPeriodInfo(userId);
+            UserPeriods period = new UserPeriods();
+
+            period.enabled = (Boolean) periodInfo.get("enabled");
+            period.periodType = (String) periodInfo.get("periodType");
+            period.periodStartDate = (String) periodInfo.get("periodStartDate");
+            period.nextResetDate = (String) periodInfo.get("nextResetDate");
+            period.daysLeft = (Long) periodInfo.get("daysLeft");
+            period.lastResetDate = (String) periodInfo.get("lastResetDate");
+
+            return period;
+        }
+
         String key = getPeriodKey(userId);
         return allPeriods.computeIfAbsent(key, k -> new UserPeriods());
     }
@@ -209,6 +244,11 @@ public class UserCategoryStorage {
     public static void saveUserCategoriesAndLimits(Long userId, String type,
                                                    Map<String, Double> categories,
                                                    Map<String, Double> limitsGoals) {
+        if (USE_DATABASE) {
+            DatabaseManager.saveUserCategoriesAndLimits(userId, type, categories, limitsGoals);
+            return;
+        }
+
         UserCategories userData = getUserCategories(userId, type);
         if (categories != null) {
             userData.categories = new HashMap<>(categories);
@@ -236,6 +276,18 @@ public class UserCategoryStorage {
             periodData.daysLeft = calculateDaysLeft(currentDate, periodData.nextResetDate);
         } else {
             periodData.daysLeft = 0L;
+        }
+
+        if (USE_DATABASE) {
+            Map<String, Object> periodInfo = new HashMap<>();
+            periodInfo.put("enabled", periodData.enabled);
+            periodInfo.put("periodType", periodData.periodType);
+            periodInfo.put("periodStartDate", periodData.periodStartDate);
+            periodInfo.put("nextResetDate", periodData.nextResetDate);
+            periodInfo.put("daysLeft", periodData.daysLeft);
+            periodInfo.put("lastResetDate", periodData.lastResetDate);
+
+            DatabaseManager.savePeriodInfo(userId, periodInfo);
         }
     }
 
@@ -269,7 +321,19 @@ public class UserCategoryStorage {
         periodData.daysLeft = calculateDaysLeft(startDate, nextResetDate);
         periodData.lastResetDate = startDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
-        savePeriodsData();
+        if (USE_DATABASE) {
+            Map<String, Object> periodInfo = new HashMap<>();
+            periodInfo.put("enabled", periodData.enabled);
+            periodInfo.put("periodType", periodData.periodType);
+            periodInfo.put("periodStartDate", periodData.periodStartDate);
+            periodInfo.put("nextResetDate", periodData.nextResetDate);
+            periodInfo.put("daysLeft", periodData.daysLeft);
+            periodInfo.put("lastResetDate", periodData.lastResetDate);
+
+            DatabaseManager.savePeriodInfo(userId, periodInfo);
+        } else {
+            savePeriodsData();
+        }
     }
 
     public static void disablePeriod(Long userId) {
@@ -277,7 +341,19 @@ public class UserCategoryStorage {
         periodData.enabled = false;
         periodData.daysLeft = 0L;
 
-        savePeriodsData();
+        if (USE_DATABASE) {
+            Map<String, Object> periodInfo = new HashMap<>();
+            periodInfo.put("enabled", periodData.enabled);
+            periodInfo.put("periodType", periodData.periodType);
+            periodInfo.put("periodStartDate", periodData.periodStartDate);
+            periodInfo.put("nextResetDate", periodData.nextResetDate);
+            periodInfo.put("daysLeft", periodData.daysLeft);
+            periodInfo.put("lastResetDate", periodData.lastResetDate);
+
+            DatabaseManager.savePeriodInfo(userId, periodInfo);
+        } else {
+            savePeriodsData();
+        }
     }
 
     public static String manualResetPeriod(Long userId) {
@@ -354,7 +430,19 @@ public class UserCategoryStorage {
         periodData.nextResetDate = nextResetDate;
         periodData.daysLeft = calculateDaysLeft(newStartDate, nextResetDate);
 
-        savePeriodsData();
+        if (USE_DATABASE) {
+            Map<String, Object> periodInfo = new HashMap<>();
+            periodInfo.put("enabled", periodData.enabled);
+            periodInfo.put("periodType", periodData.periodType);
+            periodInfo.put("periodStartDate", periodData.periodStartDate);
+            periodInfo.put("nextResetDate", periodData.nextResetDate);
+            periodInfo.put("daysLeft", periodData.daysLeft);
+            periodInfo.put("lastResetDate", periodData.lastResetDate);
+
+            DatabaseManager.savePeriodInfo(userId, periodInfo);
+        } else {
+            savePeriodsData();
+        }
 
         return generateResetNotification(
                 periodData,
@@ -419,7 +507,7 @@ public class UserCategoryStorage {
             }
 
             String periodName = getPeriodNameForNotification(periodData.periodType);
-            String message = MessageFormat.format(""" 
+            String message = MessageFormat.format("""
 🔄 Период сброшен
 
 Завершен период: {0}
@@ -507,12 +595,18 @@ public class UserCategoryStorage {
     }
 
     public static void deleteUserData(Long userId) {
-        allCategories.remove(getUserKey(userId, "income"));
-        allCategories.remove(getUserKey(userId, "expense"));
+        if (USE_DATABASE) {
+            DatabaseManager.deleteUserData(userId);
+        } else {
+            allCategories.remove(getUserKey(userId, "income"));
+            allCategories.remove(getUserKey(userId, "expense"));
 
-        allPeriods.remove(getPeriodKey(userId));
+            allPeriods.remove(getPeriodKey(userId));
 
-        saveAllData();
+            saveAllData();
+        }
+
+        pendingNotifications.remove(userId);
         System.out.println("Удалены данные пользователя: " + userId);
     }
 }

@@ -27,6 +27,8 @@ public class MyTelegramBot extends TelegramLongPollingBot {
     private final Map<Long, Long> lastMessageTime = new HashMap<>();
     private static final long CLEAR_DIALOG_TIMEOUT = 5 * 60 * 1000L;
 
+    private final AggregatorMessage messageProvider = new AggregatorMessage();
+
     public MyTelegramBot() {
         this.dialogManager = new DialogManager(
                 new UserSessionManager()
@@ -57,7 +59,6 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             }
 
             if (userId != null) {
-                checkForClearedDialog(userId);
 
                 if (update.hasMyChatMember()) {
                     ChatMemberUpdated chatMember = update.getMyChatMember();
@@ -70,7 +71,12 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                     }
                 }
             }
-
+            String notification = UserCategoryStorage.getPendingNotification(userId);
+            if (notification != null && !notification.isEmpty()) {
+                // Отправляем уведомление с кнопкой "Назад"
+                sendMessage(userId, notification, KeyboardManager.getStartMenuKeyboard());
+                return;
+            }
 
             if (update.hasMessage() && update.getMessage().hasText()) {
                 handleTextMessage(update);
@@ -78,24 +84,12 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                 lastMessageTime.put(userId, System.currentTimeMillis());
 
             } else if (update.hasCallbackQuery()) {
+
                 handleCallbackQuery(update);
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-        }
-    }
-
-    //это нам не надо, но я оставлю, тк в масштабной логике он полезен
-    private void checkForClearedDialog(Long userId) {
-        Long lastTime = lastMessageTime.get(userId);
-        if (lastTime != null) {
-            long timeSinceLastMessage = System.currentTimeMillis() - lastTime;
-
-            if (timeSinceLastMessage > CLEAR_DIALOG_TIMEOUT) {
-                System.out.println("Возможно пользователь " + userId + " очистил диалог. " +
-                        "Время с последнего сообщения: " + (timeSinceLastMessage/1000) + " сек");
-            }
         }
     }
 
@@ -124,6 +118,28 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
         lastMessageTime.put(userId, System.currentTimeMillis());
 
+        if ("CLEAR_MY_DATA".equals(callbackData)) {
+            InlineKeyboardMarkup keyboard = KeyboardManager.getClearDataConfirmationKeyboard();
+            sendMessage(userId, messageProvider.getMessage("finance.clear.data.confirm"), keyboard);
+            return;
+        }
+
+        if ("CONFIRM_CLEAR_DATA".equals(callbackData)) {
+            deleteUserData(userId);
+            sendMessage(userId, "✅ Все ваши данные успешно удалены!\n" +
+                            "Бот сброшен к начальному состоянию\n\n\n" +
+                    messageProvider.getMessage("welcome"),
+                    KeyboardManager.getStartMenuKeyboard());
+            return;
+        }
+
+        if ("CANCEL_CLEAR_DATA".equals(callbackData)) {
+            sendMessage(userId, "❌ Удаление данных отменено\n\n\n"
+                            + messageProvider.getMessage("menu.main") ,
+                    KeyboardManager.getMainMenuKeyboard());
+            return;
+        }
+
         // Обработка статистики
         if (callbackData.equals("INCOME_STATS") || callbackData.equals("EXPENSE_STATS")) {
             handleStatisticsWithChart(userId);
@@ -136,6 +152,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
     //просто вынесла стандартную обработку DialogManager
     private void handleUserInput(Long userId, String userInput) {
+
         String response = dialogManager.processUserInput(userId, userInput);
 
         String currentState = dialogManager.getCurrentState(userId).getClass().getSimpleName();
@@ -210,7 +227,6 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         try {
             UserCategoryStorage.deleteUserData(userId);
 
-            // Очищаем сессию через UserSessionManager
             UserSessionManager sessionManager = new UserSessionManager();
             sessionManager.clearUserSession(userId);
 

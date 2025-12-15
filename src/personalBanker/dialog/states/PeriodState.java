@@ -42,12 +42,10 @@ public class PeriodState implements DialogState {
     public String userRequest(DialogContext context) {
         String input = context.getUserInput();
 
-        // Обработка кнопки назад ВСЕГДА
         if (input.equalsIgnoreCase("назад") || input.equals("BACK")) {
             return handleBackButton();
         }
 
-        // Обработка колбэков
         if (input.startsWith("PERIOD_")) {
             return handlePeriodCallback(input);
         }
@@ -169,7 +167,6 @@ public class PeriodState implements DialogState {
             sb.append("Следующий сброс: ").append(formatDate(nextReset)).append("\n");
             sb.append("Осталось дней: ").append(daysLeft).append("\n");
 
-            // Показываем информацию о доходах и расходах
             double incomeTotal = getTotalForType("income");
             double expenseTotal = getTotalForType("expense");
 
@@ -211,17 +208,7 @@ public class PeriodState implements DialogState {
     }
 
     private String manualResetPeriod() {
-        boolean success = UserCategoryStorage.manualResetPeriod(userId);
-
-        if (success) {
-            return "✅ Суммы успешно сброшены\n\n" +
-                    "Все суммы доходов и расходов обнулены.\n" +
-                    "Лимиты и цели сохранены.\n" +
-                    "Новый период начат.";
-        } else {
-            return "❌ Не удалось сбросить суммы\n\n" +
-                    "Попробуйте еще раз или проверьте настройки периода.";
-        }
+        return UserCategoryStorage.manualResetPeriod(userId);
     }
 
     private String getPeriodName(String periodType) {

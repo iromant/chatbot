@@ -1,9 +1,9 @@
-FROM maven:3.8-openjdk-11 AS builder
+FROM openjdk:11-jdk-slim
+
 WORKDIR /app
 COPY . .
-RUN mvn clean package -DskipTests
+RUN apt-get update && \
+    apt-get install -y maven && \
+    mvn clean package -DskipTests
 
-FROM openjdk:11-jre-slim
-WORKDIR /app
-COPY --from=builder /app/target/*.jar app.jar
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "target/*.jar"]

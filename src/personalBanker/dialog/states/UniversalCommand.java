@@ -3,7 +3,6 @@ package personalBanker.dialog.states;
 import personalBanker.dialog.model.DialogContext;
 
 import java.util.Optional;
-import java.util.Map;
 
 public class UniversalCommand {
 
@@ -53,29 +52,6 @@ public class UniversalCommand {
                 userId = context.getUserSession().getUserId();
                 context.setNextState(new PeriodState(userId));
                 return Optional.of("");
-
-                //интересная кнопка, я в шоке
-            case "мои данные":
-            case "/mydata":
-                try {
-                    DialogState currentState = context.getUserSession().getCurrentState();
-                    if (currentState instanceof FinanceState) {
-                        FinanceState financeState = (FinanceState) currentState;
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("Ваши категории:\n\n");
-
-                        for (Map.Entry<String, Double> entry : financeState.getCategoriesMap().entrySet()) {
-                            sb.append("• ").append(entry.getKey())
-                                    .append(": ").append(String.format("%.2f", entry.getValue()))
-                                    .append(" руб\n");
-                        }
-
-                        return Optional.of(sb.toString());
-                    }
-                } catch (Exception e) {
-                    return Optional.of("Не удалось получить данные");
-                }
-                return Optional.of("Вы не в режиме доходов/расходов");
 
             default:
                 return Optional.empty();

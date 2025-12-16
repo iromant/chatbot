@@ -466,59 +466,19 @@ public class KeyboardManager {
                                                                   String responseText,
                                                                   Long userId) {
 
-        // 1. Обработка периодов
-        if ("PeriodState".equals(currentState)) {
-            return getPeriodStateKeyboard(subState, responseText, userId);
-        }
-
-        // 2. Обработка по тексту ответа (специфические случаи)
+        // 1. Обработка по тексту ответа (специфические случаи)
         if (responseText != null && !responseText.isEmpty()) {
-            InlineKeyboardMarkup keyboardByText = getKeyboardByResponseText(currentState, subState, responseText, userId);
+            InlineKeyboardMarkup keyboardByText = getKeyboardByResponseText(currentState, responseText, userId);
             if (keyboardByText != null) {
                 return keyboardByText;
             }
         }
 
-        // 3. Обработка по состоянию и подсостоянию (общая логика)
+        // 2. Обработка по состоянию и подсостоянию (общая логика)
         return getKeyboardByStateAndSubState(currentState, subState, userId);
     }
 
-    private static InlineKeyboardMarkup getPeriodStateKeyboard(String subState,
-                                                               String responseText,
-                                                               Long userId) {
-
-        if (responseText.contains("Период сброшен") ||
-                responseText.contains("Новый период начат")) {
-            return getStartMenuKeyboard();
-        }
-
-        Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
-        boolean isEnabled = (Boolean) periodInfo.get("enabled");
-
-        if (responseText.contains("Выберите период для автоматического сброса") ||
-                "SET_PERIOD".equals(subState)) {
-            return getPeriodSelectionKeyboard();
-        }
-
-        if (responseText.contains("Вы уверены, что хотите принудительно сбросить суммы") ||
-                "MANUAL_RESET".equals(subState)) {
-            return getPeriodConfirmResetKeyboard();
-        }
-
-        if (responseText.contains("Периодический сброс выключен") ||
-                responseText.contains("Не удалось сбросить суммы") ||
-                responseText.contains("Информация о периоде") ||
-                "MAIN".equals(subState) ||
-                "VIEW_INFO".equals(subState)) {
-
-            return getPeriodMenuKeyboard(isEnabled);
-        }
-
-        return getPeriodMenuKeyboard(isEnabled);
-    }
-
     private static InlineKeyboardMarkup getKeyboardByResponseText(String currentState,
-                                                                  String subState,
                                                                   String responseText,
                                                                   Long userId) {
 
@@ -615,15 +575,17 @@ public class KeyboardManager {
         if ("PeriodState".equals(currentState)) {
             Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
             boolean isEnabled = (Boolean) periodInfo.get("enabled");
-
+            
             switch (subState) {
                 case "SET_PERIOD":
                     return getPeriodSelectionKeyboard();
-
-                case "VIEW_INFO":
                 case "MANUAL_RESET":
+                    System.out.println("wertyhujiku7654");
+                    return getPeriodConfirmResetKeyboard();
+                case "VIEW_INFO":
                 case "MAIN":
                 default:
+                    System.out.println(subState);
                     return getPeriodMenuKeyboard(isEnabled);
             }
         }
@@ -676,11 +638,6 @@ public class KeyboardManager {
 
             case "IncomeState":
                 return getIncomeMenuKeyboard();
-
-            case "PeriodState":
-                Map<String, Object> periodInfo = UserCategoryStorage.getPeriodInfo(userId);
-                boolean isEnabled = (Boolean) periodInfo.get("enabled");
-                return getPeriodMenuKeyboard(isEnabled);
 
             default:
                 return getMainMenuKeyboard();

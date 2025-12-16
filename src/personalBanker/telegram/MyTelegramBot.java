@@ -73,7 +73,6 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             }
             String notification = UserCategoryStorage.getPendingNotification(userId);
             if (notification != null && !notification.isEmpty()) {
-                // Отправляем уведомление с кнопкой "Назад"
                 sendMessage(userId, notification, KeyboardManager.getStartMenuKeyboard());
                 return;
             }
@@ -105,11 +104,6 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         }
 
         handleUserInput(userId, userInput);
-
-        if (userInput.equalsIgnoreCase("старт") ||
-                userInput.equalsIgnoreCase("/start")) {
-            deleteUserData(userId);
-        }
     }
 
     private void handleCallbackQuery(Update update) {
@@ -120,15 +114,14 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
         if ("CLEAR_MY_DATA".equals(callbackData)) {
             InlineKeyboardMarkup keyboard = KeyboardManager.getClearDataConfirmationKeyboard();
-            sendMessage(userId, messageProvider.getMessage("finance.clear.data.confirm"), keyboard);
+            sendMessage(userId, messageProvider.getMessage("delete.data.warning"), keyboard);
             return;
         }
 
         if ("CONFIRM_CLEAR_DATA".equals(callbackData)) {
             deleteUserData(userId);
             sendMessage(userId, "✅ Все ваши данные успешно удалены!\n" +
-                            "Бот сброшен к начальному состоянию\n\n\n" +
-                    messageProvider.getMessage("welcome"),
+                            "Бот сброшен к начальному состоянию\n\n\n",
                     KeyboardManager.getStartMenuKeyboard());
             return;
         }

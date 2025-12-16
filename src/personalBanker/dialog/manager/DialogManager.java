@@ -83,7 +83,6 @@ public class DialogManager {
         return state.getCurrentSubState();
     }
 
-    // Метод для обработки статистики с диаграммой
     public static class ChartResponse {
         private final String statistics;
 
